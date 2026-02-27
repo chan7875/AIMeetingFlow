@@ -1,7 +1,6 @@
 # AIMeetingFlow
 
-AI 기반 콘텐츠 생성 및 다중 플랫폼 자동 배포 시스템입니다.
-YouTube, Threads, 네이버 블로그, LinkedIn에 콘텐츠를 자동으로 생성·최적화·게시하며,
+AI 기반 미팅 내용 기반 콘텐츠를 자동으로 생성·최적화·게시하며,
 Obsidian 마크다운 볼트를 위한 웹 뷰어와 AI 어시스턴트 기능도 포함합니다.
 
 ---
@@ -9,7 +8,6 @@ Obsidian 마크다운 볼트를 위한 웹 뷰어와 AI 어시스턴트 기능�
 ## 주요 기능
 
 - **AI 콘텐츠 생성**: OpenAI GPT-4o, Claude CLI, Codex CLI를 활용한 콘텐츠 자동 생성
-- **다중 플랫폼 배포**: YouTube, Threads(450자 분할), 네이버 블로그(Playwright), LinkedIn 자동 게시
 - **Obsidian 웹 뷰어**: 마크다운 파일 탐색 및 렌더링, 실시간 AI 분석
 - **Git 연동**: 웹 UI에서 git pull/push/commit 직접 실행
 - **자동 감시(Auto-watch)**: 새 파일 감지 시 Codex 자동 처리
