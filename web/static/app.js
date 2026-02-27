@@ -246,11 +246,13 @@ async function openFile(path, name) {
     const data = await res.json();
     state.currentFile = data;
 
-    // Update header
-    const header = document.getElementById('viewer-header');
-    header.style.display = 'flex';
+    // Update section-bar
     document.getElementById('viewer-filename').textContent = data.name;
     document.getElementById('viewer-path').textContent = data.path;
+    document.getElementById('summarize-btn').style.display = '';
+
+    // Expand viewer if collapsed
+    expandSection('viewer');
 
     // Render markdown
     const content = document.getElementById('viewer-content');
@@ -264,7 +266,7 @@ async function openFile(path, name) {
     });
 
     // Scroll to top
-    document.getElementById('viewer').scrollTop = 0;
+    document.getElementById('viewer-scroll').scrollTop = 0;
 
     // Mobile: auto-close sidebar after file selection
     if (isMobile()) closeSidebar();
@@ -365,6 +367,9 @@ async function runAIStream() {
   const runBtn = document.getElementById('run-btn');
   runBtn.disabled = true;
   runBtn.innerHTML = '<span class="spinner"></span> 실행 중...';
+
+  // 결과 섹션 펼치기
+  expandSection('result-section');
 
   const resultArea = document.getElementById('result-area');
   resultArea.innerHTML = '<div id="streaming-output" style="white-space:pre-wrap;font-family:monospace;font-size:12px;"></div>';
@@ -688,6 +693,17 @@ function toast(message, type = 'info') {
   el.textContent = message;
   container.appendChild(el);
   setTimeout(() => el.remove(), 3500);
+}
+
+/* ── Collapsible Sections ────────────────────────────────────────── */
+function toggleSection(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('collapsed');
+}
+
+function expandSection(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('collapsed');
 }
 
 /* ── Mobile Sidebar Drawer ───────────────────────────────────────── */
