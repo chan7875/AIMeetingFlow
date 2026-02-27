@@ -29,27 +29,7 @@ services/          # All business logic lives here
 | Naver Blog | Playwright browser automation | Chrome CDP via `chrome_cdp_url`, char-by-char typing |
 | LinkedIn | OAuth2 (`/data/linkedin_token.json`) | Cooldown: 1-72 hrs configurable |
 
-## Required Config (config.settings)
 
-```
-openai_api_key
-google_client_id / google_client_secret
-linkedin OAuth credentials
-naver_id / naver_password / naver_blog_name / chrome_cdp_url
-s3_bucket_name / s3_region / aws_access_key / aws_secret_key
-airtable_base_id / airtable_table_name / airtable_api_key
-smtp_host / smtp_port / smtp_user / smtp_password / smtp_from / notify_email_to
-slack_webhook_url (optional)
-```
-
-## Content Workflow
-
-1. Input (YouTube URL or text) → ChatGPT/Claude/Codex generation
-2. Quality score check (0-100)
-3. Optional template application
-4. Schedule via APScheduler
-5. Async multi-platform distribution
-6. Email/Slack/browser notifications + pre-schedule reminders
 
 ## Technology Stack
 

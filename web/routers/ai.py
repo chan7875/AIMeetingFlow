@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -148,6 +149,64 @@ def _build_input(content: str, prompt: str, context: str = "") -> str:
     return "\n\n".join(parts) + "\n"
 
 
+def _extract_issue_index(stem: str) -> int | None:
+    patterns = [
+        r"^[^_]+_(\d+)_",   # 새 규칙: folder_001_title
+        r"^[^-]+-(\d+)_",   # 기존 규칙: CODE-001_title
+    ]
+    for pattern in patterns:
+        match = re.match(pattern, stem)
+        if match:
+            try:
+                return int(match.group(1))
+            except ValueError:
+                return None
+    return None
+
+
+def _extract_title_from_ai_output(ai_output: str, fallback: str) -> str:
+    text = (ai_output or "").strip()
+    if not text:
+        return fallback
+
+    lines = text.splitlines()
+
+    # YAML frontmatter의 title: 값을 우선 사용
+    if lines and lines[0].strip() == "---":
+        for line in lines[1:120]:
+            if line.strip() == "---":
+                break
+            match = re.match(r"^\s*title\s*:\s*(.+?)\s*$", line, flags=re.IGNORECASE)
+            if match:
+                value = match.group(1).strip().strip("\"'")
+                if value:
+                    return value
+
+    # 첫 번째 Markdown heading 사용
+    for line in lines:
+        heading = line.strip()
+        if heading.startswith("#"):
+            value = heading.lstrip("#").strip()
+            if value:
+                return value
+
+    return fallback
+
+
+def _sanitize_filename_token(value: str, fallback: str) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        raw = fallback
+
+    cleaned = re.sub(r"[\\/:*?\"<>|]+", "", raw)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    cleaned = cleaned.replace(" ", "_")
+    cleaned = re.sub(r"_+", "_", cleaned).strip("._")
+    if not cleaned:
+        cleaned = fallback
+    return cleaned[:80]
+
+
 def _save_ai_output(vault: Path, source_path: str, source_abs: Path, ai_output: str) -> dict[str, str]:
     path_parts = Path(source_path).parts
     account = path_parts[0] if len(path_parts) > 1 else ""
@@ -159,22 +218,16 @@ def _save_ai_output(vault: Path, source_path: str, source_abs: Path, ai_output: 
 
     existing = sorted(f.stem for f in issue_dir.glob("*.md"))
     next_num = 1
-    for name in existing:
-        part = name.split("-")[-1].split("_")[0] if "-" in name else ""
-        if part.isdigit():
-            next_num = max(next_num, int(part) + 1)
+    for stem in existing:
+        index = _extract_issue_index(stem)
+        if index is not None:
+            next_num = max(next_num, index + 1)
 
-    first_line = ai_output.lstrip().splitlines()[0] if ai_output else ""
-    title_raw = first_line.lstrip("#").strip() if first_line.startswith("#") else source_abs.stem
-    safe_title = "".join(c for c in title_raw if c not in r'\/:*?"<>|').strip()[:40] or source_abs.stem
+    folder_token = _sanitize_filename_token(account or issue_dir.name or "issue", "issue")
+    title_raw = _extract_title_from_ai_output(ai_output, source_abs.stem)
+    title_token = _sanitize_filename_token(title_raw, source_abs.stem or "untitled")
 
-    code = account.upper()[:4] if account else "ISSUE"
-    if existing:
-        first_file = existing[0]
-        if "-" in first_file:
-            code = first_file.split("-")[0]
-
-    out_name = f"{code}-{next_num:03d}_{safe_title}.md"
+    out_name = f"{folder_token}_{next_num:03d}_{title_token}.md"
     out_path = issue_dir / out_name
     out_path.write_text(ai_output, encoding="utf-8")
     return {"saved_path": str(out_path.relative_to(vault)), "name": out_name}
