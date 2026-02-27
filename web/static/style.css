@@ -321,12 +321,12 @@ main {
 
 /* ── AI Panel ─────────────────────────────────────────────── */
 #ai-panel {
-  height: var(--ai-panel-h);
+  min-height: var(--ai-panel-h);
+  flex: 1;                        /* 뷰어 접힐 때 AI 패널이 공간 차지 */
   background: var(--surface);
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
   overflow: hidden;
 }
 
@@ -678,12 +678,12 @@ main {
   /* Main 전체 너비 */
   main { width: 100%; min-width: 0; }
 
-  /* ── 레이아웃 비율: viewer 30% / prompt 20% / result 30% ── */
+  /* ── 유동 레이아웃: 펼친 섹션이 남은 공간 모두 차지 ── */
 
-  /* Viewer (마크다운 내용): 30vh */
+  /* Viewer: 남은 공간 flex */
   #viewer {
-    height: 30vh;
-    flex: none;
+    flex: 1;
+    height: auto;
   }
 
   /* 뷰어 스크롤 영역 */
@@ -692,7 +692,7 @@ main {
     -webkit-overflow-scrolling: touch;
   }
 
-  /* AI 패널: 나머지 공간 */
+  /* AI 패널: 남은 공간 flex */
   #ai-panel {
     flex: 1;
     height: auto;
@@ -704,19 +704,19 @@ main {
     flex-direction: column;
   }
 
-  /* 프롬프트 섹션: 20vh */
+  /* 프롬프트 섹션: 남은 공간 flex */
   #prompt-section {
+    flex: 1;
     width: 100%;
-    height: 20vh;
-    flex: none;
+    height: auto;
     border-right: none;
     border-bottom: 1px solid var(--border);
   }
 
-  /* 실행결과 섹션: 30vh */
+  /* 실행결과 섹션: 남은 공간 flex */
   #result-section {
-    height: 30vh;
-    flex: none;
+    flex: 1;
+    height: auto;
   }
 
   /* result-area 스크롤 항상 표시 */
@@ -725,10 +725,13 @@ main {
     -webkit-overflow-scrolling: touch;
   }
 
-  /* 접힌 섹션: 섹션바 높이만 유지 */
-  #viewer.collapsed       { height: 34px; }
-  #prompt-section.collapsed { height: 34px; }
-  #result-section.collapsed { height: 34px; }
+  /* 접힌 섹션: 섹션바 높이만, flex 해제 → 펼친 섹션이 공간 차지 */
+  #viewer.collapsed,
+  #prompt-section.collapsed,
+  #result-section.collapsed {
+    flex: none !important;
+    height: 34px !important;
+  }
 
   /* Viewer 패딩 축소 */
   #viewer-content { padding: 12px 14px; }
