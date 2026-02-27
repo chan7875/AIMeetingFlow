@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Obsidian Vault Viewer</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <!-- marked.js for Markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- highlight.js for code syntax highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────── -->
+<header>
+  <h1>📓 Vault Viewer</h1>
+  <div class="vault-path" id="vault-path-display" title="클릭하여 경로 변경">로딩 중...</div>
+  <button class="header-btn" onclick="openSettingsModal()" title="설정">⚙ 설정</button>
+  <button class="header-btn" onclick="openUploadModal()" title="파일 업로드">⬆ 업로드</button>
+  <button class="header-btn" id="auto-watch-btn" onclick="toggleAutoWatch()" title="새 파일 자동 Codex 분석">🛰 자동 분석 OFF</button>
+  <button class="header-btn success" onclick="runGit('pull')" title="Git Pull">⬇ Pull</button>
+  <button class="header-btn danger" onclick="openGitPushModal()" title="Git Push">⬆ Push</button>
+</header>
+
+<!-- ── Layout ──────────────────────────────────────────────────────── -->
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <span>파일 탐색기</span>
+      <button class="icon-btn" onclick="loadTree()" title="새로고침">↻</button>
+    </div>
+    <div id="tree-container">
+      <div style="padding:16px;color:var(--text-dim);font-size:12px;">로딩 중...</div>
+    </div>
+    <div class="resize-handle" id="resize-handle"></div>
+  </aside>
+
+  <!-- Main -->
+  <main>
+    <!-- Viewer -->
+    <div id="viewer">
+      <div id="viewer-header" style="display:none;">
+        <span id="viewer-filename"></span>
+        <span id="viewer-path"></span>
+        <button class="icon-btn" onclick="summarizeCurrentFile()" title="AI 요약 후 issue 폴더에 저장">🤖 요약 저장</button>
+      </div>
+      <div id="viewer-content">
+        <div id="viewer-placeholder">
+          <div class="placeholder-icon">📄</div>
+          <div>왼쪽 트리에서 마크다운 파일을 선택하세요</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Panel -->
+    <div id="ai-panel">
+      <div class="ai-panel-header">
+        <span class="ai-panel-title">🤖 AI 어시스턴트</span>
+        <div class="engine-toggle">
+          <button class="engine-btn active" id="btn-claude" onclick="selectEngine('claude')">Claude</button>
+          <button class="engine-btn" id="btn-codex" onclick="selectEngine('codex')">Codex</button>
+        </div>
+        <div class="spacer"></div>
+        <button class="btn btn-primary" id="run-btn" onclick="runAI()" disabled>▶ 실행</button>
+        <button class="btn btn-secondary" id="save-btn" onclick="saveToIssue()" disabled>💾 issue 저장</button>
+      </div>
+      <div class="ai-panel-body">
+        <div id="prompt-area">
+          <textarea id="prompt-textarea" placeholder="AI에게 전달할 프롬프트를 입력하세요...">다음 마크다운 파일의 내용을 핵심 위주로 요약해 주세요.
+현재 선택된 md 파일 상단에 아래의 내용을 추가를 해 줘.
+ - account 는 md 파일이 포함된 상단의 폴더 이름이야.
+ - Date : 는 md 파일 내의 날짜를 분석해서 입력해 줘, 포맷은 년-월-일 이고, 예시는 2026-02-02 야.
+ - tags : [type 값, account 값] 을 입력해 줘.
+주제, 핵심 내용, 액션 아이템을 구분하여 정리해 주세요.
+아래에 제공된 Template_Issue.md 포맷에 맞춰서 마크다운으로 작성해 줘.
+파일 저장은 시스템이 자동으로 처리하므로, 파일 쓰기는 하지 말고 내용만 출력해 줘.</textarea>
+        </div>
+        <div id="result-area">
+          <div id="result-placeholder">실행 결과가 여기에 표시됩니다.</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ── Toast Container ─────────────────────────────────────────────── -->
+<div id="toast-container"></div>
+
+<!-- ── Modal: Settings ────────────────────────────────────────────── -->
+<div class="modal-overlay" id="settings-modal" style="display:none;" onclick="closeModal('settings-modal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3>⚙ 설정</h3>
+    <div>
+      <label>볼트(Vault) 폴더 경로</label>
+      <input type="text" id="settings-vault-input" placeholder="/Users/username/Documents/MyVault">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('settings-modal')">취소</button>
+      <button class="btn btn-primary" onclick="saveSettings()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Upload ──────────────────────────────────────────────── -->
+<div class="modal-overlay" id="upload-modal" style="display:none;" onclick="closeModal('upload-modal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3>⬆ 파일 업로드</h3>
+    <div
+      class="drop-zone"
+      id="drop-zone"
+      onclick="document.getElementById('file-input').click()"
+      ondragover="event.preventDefault(); this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="handleDrop(event)"
+    >
+      <div>여기에 파일을 드래그하거나 클릭하여 선택</div>
+      <div style="margin-top:6px;font-size:11px;opacity:.6;">허용: .md .txt .png .jpg .jpeg .gif .pdf</div>
+      <div id="selected-files-info" style="margin-top:10px;color:var(--accent);font-size:12px;"></div>
+    </div>
+    <input type="file" id="file-input" style="display:none" multiple onchange="handleFileSelect(event)">
+
+    <div>
+      <label>저장 위치 선택</label>
+      <div class="folder-picker" id="upload-folder-picker">
+        <div style="padding:8px;color:var(--text-dim);font-size:12px;">로딩 중...</div>
+      </div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:6px;">선택된 경로: <span id="selected-dest-path" style="color:var(--accent);">/</span></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('upload-modal')">취소</button>
+      <button class="btn btn-primary" id="upload-btn" onclick="doUpload()" disabled>업로드</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Git Output ──────────────────────────────────────────── -->
+<div class="modal-overlay" id="git-modal" style="display:none;" onclick="closeModal('git-modal')">
+  <div class="modal" onclick="event.stopPropagation()" style="min-width:520px;">
+    <h3 id="git-modal-title">Git 실행 중...</h3>
+    <div class="terminal-output" id="git-output"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('git-modal')" id="git-close-btn" disabled>닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Git Push ────────────────────────────────────────────── -->
+<div class="modal-overlay" id="git-push-modal" style="display:none;" onclick="closeModal('git-push-modal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3>⬆ Git Push</h3>
+    <div>
+      <label>커밋 메시지</label>
+      <input type="text" id="git-commit-msg" value="웹 뷰어에서 업데이트" placeholder="커밋 메시지를 입력하세요">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('git-push-modal')">취소</button>
+      <button class="btn btn-primary" onclick="runGitPush()">Push 실행</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
