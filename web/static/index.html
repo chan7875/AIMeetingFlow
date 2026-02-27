@@ -15,14 +15,18 @@
 
 <!-- ── Header ──────────────────────────────────────────────────────── -->
 <header>
+  <button class="header-btn" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="파일 탐색기 열기/닫기">☰</button>
   <h1>📓 Vault Viewer</h1>
   <div class="vault-path" id="vault-path-display" title="클릭하여 경로 변경">로딩 중...</div>
-  <button class="header-btn" onclick="openSettingsModal()" title="설정">⚙ 설정</button>
-  <button class="header-btn" onclick="openUploadModal()" title="파일 업로드">⬆ 업로드</button>
-  <button class="header-btn" id="auto-watch-btn" onclick="toggleAutoWatch()" title="새 파일 자동 Codex 분석">🛰 자동 분석 OFF</button>
-  <button class="header-btn success" onclick="runGit('pull')" title="Git Pull">⬇ Pull</button>
-  <button class="header-btn danger" onclick="openGitPushModal()" title="Git Push">⬆ Push</button>
+  <button class="header-btn" onclick="openSettingsModal()" title="설정">⚙ <span class="btn-text">설정</span></button>
+  <button class="header-btn" onclick="openUploadModal()" title="파일 업로드">⬆ <span class="btn-text">업로드</span></button>
+  <button class="header-btn" id="auto-watch-btn" onclick="toggleAutoWatch()" title="새 파일 자동 Codex 분석">🛰 <span class="btn-text">자동 분석 OFF</span></button>
+  <button class="header-btn success" onclick="runGit('pull')" title="Git Pull">⬇ <span class="btn-text">Pull</span></button>
+  <button class="header-btn danger" onclick="openGitPushModal()" title="Git Push">⬆ <span class="btn-text">Push</span></button>
 </header>
+
+<!-- ── Sidebar Overlay (mobile) ─────────────────────────────────── -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
 <!-- ── Layout ──────────────────────────────────────────────────────── -->
 <div class="layout">

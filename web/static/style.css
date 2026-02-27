@@ -517,3 +517,116 @@ main {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* ── Sidebar Overlay (mobile backdrop) ───────────────────────────── */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .55);
+  z-index: 90;
+  backdrop-filter: blur(1px);
+}
+.sidebar-overlay.visible { display: block; }
+
+/* ── Sidebar toggle btn: hidden on desktop ───────────────────────── */
+#sidebar-toggle-btn { display: none; }
+
+/* ── Mobile: ≤ 768px ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+
+  /* Show sidebar toggle */
+  #sidebar-toggle-btn {
+    display: flex;
+    flex-shrink: 0;
+    padding: 6px 10px;
+    font-size: 16px;
+  }
+
+  /* Compact header – single row, wrap on overflow */
+  header {
+    padding: 0 10px;
+    gap: 6px;
+    height: auto;
+    min-height: var(--header-h);
+    flex-wrap: nowrap;
+  }
+
+  header h1 { font-size: 13px; }
+
+  /* Vault path shrinks; long path truncates */
+  .vault-path {
+    font-size: 11px;
+    padding: 3px 8px;
+    min-width: 0;
+  }
+
+  /* Hide button text labels – show icons only */
+  .btn-text { display: none; }
+
+  /* Slightly smaller header buttons */
+  .header-btn {
+    padding: 5px 8px;
+    font-size: 13px;
+  }
+
+  /* ── Sidebar becomes a full-height slide-in drawer ── */
+  aside {
+    position: fixed;
+    top: 0;
+    left: -105%;           /* hidden off-screen */
+    height: 100%;
+    width: 78vw;
+    max-width: 300px;
+    z-index: 100;
+    border-right: 1px solid var(--border);
+    box-shadow: 4px 0 20px rgba(0,0,0,.4);
+    transition: left .28s cubic-bezier(.4, 0, .2, 1);
+  }
+
+  aside.open { left: 0; }
+
+  /* Resize handle – disable on mobile */
+  .resize-handle { display: none; }
+
+  /* Main area takes full width */
+  main { width: 100%; min-width: 0; }
+
+  /* AI panel shorter on mobile */
+  #ai-panel { height: 220px; }
+
+  /* Prompt & result stack vertically on very small screens */
+  @media (max-width: 480px) {
+    .ai-panel-body { flex-direction: column; }
+    #prompt-area {
+      width: 100%;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      max-height: 90px;
+    }
+  }
+
+  /* Viewer padding smaller */
+  #viewer-content { padding: 16px; }
+  #viewer-header  { padding: 8px 14px; }
+
+  /* Markdown table scroll */
+  #viewer-content table { display: block; overflow-x: auto; }
+
+  /* Modals: full width, no min-width */
+  .modal {
+    min-width: unset;
+    width: 96%;
+    padding: 18px 16px;
+    max-height: 90vh;
+  }
+
+  /* Git modal wider */
+  #git-modal .modal { min-width: unset; }
+
+  /* Toast near bottom edge */
+  #toast-container { right: 10px; bottom: 10px; }
+
+  /* AI panel header wrap */
+  .ai-panel-header { gap: 6px; padding: 6px 10px; }
+}

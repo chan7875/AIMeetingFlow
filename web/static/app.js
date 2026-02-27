@@ -266,6 +266,9 @@ async function openFile(path, name) {
     // Scroll to top
     document.getElementById('viewer').scrollTop = 0;
 
+    // Mobile: auto-close sidebar after file selection
+    if (isMobile()) closeSidebar();
+
     // Enable AI buttons
     document.getElementById('run-btn').disabled = false;
     document.getElementById('save-btn').disabled = false;
@@ -687,13 +690,34 @@ function toast(message, type = 'info') {
   setTimeout(() => el.remove(), 3500);
 }
 
-/* ── Sidebar Resize ──────────────────────────────────────────────── */
+/* ── Mobile Sidebar Drawer ───────────────────────────────────────── */
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar.classList.contains('open')) {
+    closeSidebar();
+  } else {
+    sidebar.classList.add('open');
+    document.getElementById('sidebar-overlay').classList.add('visible');
+  }
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('visible');
+}
+
+function isMobile() {
+  return window.innerWidth <= 768;
+}
+
+/* ── Sidebar Resize (desktop only) ──────────────────────────────── */
 function setupResize() {
   const handle = document.getElementById('resize-handle');
   const sidebar = document.getElementById('sidebar');
   let startX, startW;
 
   handle.addEventListener('mousedown', e => {
+    if (isMobile()) return;
     startX = e.clientX;
     startW = sidebar.offsetWidth;
     document.addEventListener('mousemove', onMouseMove);
