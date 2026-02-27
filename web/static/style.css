@@ -543,38 +543,41 @@ main {
     font-size: 16px;
   }
 
-  /* Compact header – single row, wrap on overflow */
+  /* Header: 한 줄, 넘침 없이 */
   header {
-    padding: 0 10px;
-    gap: 6px;
-    height: auto;
-    min-height: var(--header-h);
+    padding: 0 8px;
+    gap: 4px;
+    height: var(--header-h);
     flex-wrap: nowrap;
+    overflow: hidden;
   }
 
-  header h1 { font-size: 13px; }
+  /* h1 숨김 – 아이콘 버튼들에 공간 확보 */
+  header h1 { display: none; }
 
-  /* Vault path shrinks; long path truncates */
+  /* Vault path: 남은 공간 차지, 너무 길면 줄임 */
   .vault-path {
     font-size: 11px;
     padding: 3px 8px;
     min-width: 0;
+    flex: 1;
   }
 
-  /* Hide button text labels – show icons only */
+  /* 버튼 텍스트 레이블 숨김 – 아이콘만 표시 */
   .btn-text { display: none; }
 
-  /* Slightly smaller header buttons */
+  /* 헤더 버튼 아이콘 크기만 */
   .header-btn {
-    padding: 5px 8px;
-    font-size: 13px;
+    padding: 5px 7px;
+    font-size: 15px;
+    flex-shrink: 0;
   }
 
-  /* ── Sidebar becomes a full-height slide-in drawer ── */
+  /* ── Sidebar: 슬라이드 인 드로어 ── */
   aside {
     position: fixed;
     top: 0;
-    left: -105%;           /* hidden off-screen */
+    left: -105%;
     height: 100%;
     width: 78vw;
     max-width: 300px;
@@ -586,47 +589,73 @@ main {
 
   aside.open { left: 0; }
 
-  /* Resize handle – disable on mobile */
+  /* Resize handle 비활성화 */
   .resize-handle { display: none; }
 
-  /* Main area takes full width */
+  /* Main 전체 너비 */
   main { width: 100%; min-width: 0; }
 
-  /* AI panel shorter on mobile */
-  #ai-panel { height: 220px; }
+  /* ── 레이아웃 비율: viewer 30% / prompt 20% / result 30% ── */
 
-  /* Prompt & result stack vertically on very small screens */
-  @media (max-width: 480px) {
-    .ai-panel-body { flex-direction: column; }
-    #prompt-area {
-      width: 100%;
-      border-right: none;
-      border-bottom: 1px solid var(--border);
-      max-height: 90px;
-    }
+  /* Viewer (마크다운 내용): 30vh */
+  #viewer {
+    height: 30vh;
+    min-height: 0;
+    flex: none;
+    overflow-y: auto;
   }
 
-  /* Viewer padding smaller */
-  #viewer-content { padding: 16px; }
-  #viewer-header  { padding: 8px 14px; }
+  /* AI 패널: 나머지 공간(50vh + panel header) */
+  #ai-panel {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+  }
 
-  /* Markdown table scroll */
+  /* AI 패널 본문: 세로 스택 */
+  .ai-panel-body {
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* 프롬프트 영역: 20vh */
+  #prompt-area {
+    width: 100%;
+    height: 20vh;
+    flex: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  /* 실행결과 영역: 30vh */
+  #result-area {
+    height: 30vh;
+    flex: none;
+    overflow-y: auto;
+  }
+
+  /* Viewer 패딩 축소 */
+  #viewer-content { padding: 12px 14px; }
+  #viewer-header  { padding: 6px 12px; }
+
+  /* 마크다운 테이블 가로 스크롤 */
   #viewer-content table { display: block; overflow-x: auto; }
 
-  /* Modals: full width, no min-width */
+  /* 모달: 전체 너비 */
   .modal {
     min-width: unset;
     width: 96%;
-    padding: 18px 16px;
+    padding: 16px;
     max-height: 90vh;
   }
 
-  /* Git modal wider */
   #git-modal .modal { min-width: unset; }
 
-  /* Toast near bottom edge */
+  /* Toast 위치 */
   #toast-container { right: 10px; bottom: 10px; }
 
-  /* AI panel header wrap */
-  .ai-panel-header { gap: 6px; padding: 6px 10px; }
+  /* AI 패널 헤더 */
+  .ai-panel-header { gap: 6px; padding: 6px 10px; flex-wrap: wrap; }
 }

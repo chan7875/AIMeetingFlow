@@ -91,7 +91,7 @@ function renderAutoWatchButton() {
   const btn = document.getElementById('auto-watch-btn');
   if (!btn) return;
   const isOn = !!state.autoWatchEnabled;
-  btn.textContent = isOn ? '🛰 자동 분석 ON' : '🛰 자동 분석 OFF';
+  btn.innerHTML = `🛰 <span class="btn-text">${isOn ? '자동 분석 ON' : '자동 분석 OFF'}</span>`;
   btn.classList.toggle('toggle-on', isOn);
   btn.disabled = !!state.autoWatchBusy;
 
