@@ -1,9 +1,11 @@
 import asyncio
+import logging
 import os
 import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+import traceback
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -12,9 +14,12 @@ from pydantic import BaseModel
 from web.config import (
     get_auto_watch_enabled,
     get_issue_folder,
+    get_nlm_enabled,
     get_vault_path,
     set_auto_watch_enabled,
 )
+
+logger = logging.getLogger("ai")
 
 # Claude CLI가 Claude Code 내부에서 실행될 때 nested session 오류를 막기 위해
 # CLAUDECODE 환경변수를 제거한 환경을 미리 준비해 둔다.
@@ -50,6 +55,13 @@ _AUTO_WATCH_STATE: dict[str, Any] = {
     "last_processed_at": "",
     "last_error": "",
     "last_error_at": "",
+    "last_slide_path": "",
+    "last_slide_error": "",
+    "last_slide_error_stage": "",
+    "last_slide_error_type": "",
+    "last_slide_error_trace": "",
+    "last_slide_at": "",
+    "slides_generated_count": 0,
 }
 _AUTO_WATCH_LOCK = asyncio.Lock()
 
@@ -380,6 +392,13 @@ def _auto_watch_status_locked() -> dict[str, Any]:
         "last_processed_at": str(_AUTO_WATCH_STATE["last_processed_at"]),
         "last_error": str(_AUTO_WATCH_STATE["last_error"]),
         "last_error_at": str(_AUTO_WATCH_STATE["last_error_at"]),
+        "last_slide_path": str(_AUTO_WATCH_STATE["last_slide_path"]),
+        "last_slide_error": str(_AUTO_WATCH_STATE["last_slide_error"]),
+        "last_slide_error_stage": str(_AUTO_WATCH_STATE["last_slide_error_stage"]),
+        "last_slide_error_type": str(_AUTO_WATCH_STATE["last_slide_error_type"]),
+        "last_slide_error_trace": str(_AUTO_WATCH_STATE["last_slide_error_trace"]),
+        "last_slide_at": str(_AUTO_WATCH_STATE["last_slide_at"]),
+        "slides_generated_count": int(_AUTO_WATCH_STATE["slides_generated_count"]),
     }
 
 
@@ -415,6 +434,35 @@ async def _wait_for_stable_file(file_abs: Path) -> bool:
     return file_abs.exists()
 
 
+async def _trigger_slide_generation(
+    account: str, issue_content: str, issue_title: str, issue_md_name: str = ""
+) -> None:
+    """슬라이드 생성을 비동기로 실행한다. 에러는 state에 기록하고 이슈 생성에 영향 없도록 격리."""
+    try:
+        from services.notebooklm_service import generate_slides_for_issue
+
+        vault = get_vault_path()
+        result = await generate_slides_for_issue(
+            account, issue_content, issue_title, vault, issue_md_name=issue_md_name
+        )
+        async with _AUTO_WATCH_LOCK:
+            _AUTO_WATCH_STATE["last_slide_path"] = result.get("slide_path", "")
+            _AUTO_WATCH_STATE["last_slide_error"] = ""
+            _AUTO_WATCH_STATE["last_slide_error_stage"] = ""
+            _AUTO_WATCH_STATE["last_slide_error_type"] = ""
+            _AUTO_WATCH_STATE["last_slide_error_trace"] = ""
+            _AUTO_WATCH_STATE["last_slide_at"] = _now_iso()
+            _AUTO_WATCH_STATE["slides_generated_count"] = int(_AUTO_WATCH_STATE["slides_generated_count"]) + 1
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("슬라이드 생성 실패: account=%s file=%s", account, issue_md_name)
+        async with _AUTO_WATCH_LOCK:
+            _AUTO_WATCH_STATE["last_slide_error"] = str(exc)
+            _AUTO_WATCH_STATE["last_slide_error_stage"] = getattr(exc, "slide_stage", "슬라이드 파이프라인")
+            _AUTO_WATCH_STATE["last_slide_error_type"] = type(exc).__name__
+            _AUTO_WATCH_STATE["last_slide_error_trace"] = "".join(traceback.format_exception(exc.__class__, exc, exc.__traceback__))[:1200]
+            _AUTO_WATCH_STATE["last_slide_at"] = _now_iso()
+
+
 async def _handle_auto_watch_file(file_path: str) -> None:
     vault = get_vault_path()
     file_abs = _safe_resolve_in_vault(vault, file_path)
@@ -437,6 +485,26 @@ async def _handle_auto_watch_file(file_path: str) -> None:
         _AUTO_WATCH_STATE["last_processed_at"] = _now_iso()
         _AUTO_WATCH_STATE["last_error"] = ""
         _AUTO_WATCH_STATE["last_error_at"] = ""
+
+    # NLM 슬라이드 생성 (fire-and-forget)
+    if get_nlm_enabled():
+        path_parts = Path(file_path).parts
+        account = path_parts[0] if len(path_parts) > 1 else ""
+        if account:
+            saved_path = saved.get("saved_path", "")
+            if saved_path:
+                vault = get_vault_path()
+                issue_abs = vault / saved_path
+                issue_content = issue_abs.read_text(encoding="utf-8", errors="replace") if issue_abs.exists() else ""
+                issue_md_name = Path(saved_path).name
+                issue_title = Path(saved_path).stem
+                if issue_content:
+                    asyncio.create_task(
+                        _trigger_slide_generation(
+                            account, issue_content, issue_title, issue_md_name=issue_md_name
+                        ),
+                        name=f"slide-gen-{account}",
+                    )
 
 
 async def _auto_watch_loop() -> None:
@@ -548,18 +616,53 @@ async def run_ai(body: RunBody):
 async def summarize_and_save(body: SummarizeBody):
     """Run AI summarization on a vault file and save result to issue folder."""
     try:
-        return await summarize_file_to_issue(
+        result = await summarize_file_to_issue(
             file_path=body.file_path,
             engine=body.engine.lower(),
             prompt=body.prompt,
             timeout_sec=body.timeout_sec,
         )
+        slide_triggered = False
+        if get_nlm_enabled():
+            saved_path = result.get("saved_path", "")
+            if saved_path:
+                try:
+                    saved_rel = Path(saved_path)
+                    saved_parts = saved_rel.parts
+                    account = saved_parts[0] if len(saved_parts) > 1 else ""
+                    if account:
+                        vault = get_vault_path()
+                        saved_abs = vault / saved_rel
+                        issue_content = saved_abs.read_text(encoding="utf-8", errors="replace") if saved_abs.exists() else ""
+                        if issue_content:
+                            issue_md_name = saved_abs.name
+                            issue_title = saved_abs.stem
+                            asyncio.create_task(
+                                _trigger_slide_generation(
+                                    account=account,
+                                    issue_content=issue_content,
+                                    issue_title=issue_title,
+                                    issue_md_name=issue_md_name,
+                                ),
+                                name=f"manual-slide-gen-{account}",
+                            )
+                            slide_triggered = True
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("수동 issue 저장 후 슬라이드 생성 예약 실패: file=%s, err=%s", saved_path, exc)
+        result["slide_triggered"] = slide_triggered
+        return result
+    except OSError as exc:
+        logger.exception("summarize_and_save failed (filesystem): file_path=%s", body.file_path)
+        raise HTTPException(status_code=500, detail=f"요약 저장 중 오류: {exc}") from exc
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("summarize_and_save failed: body=%s", body.model_dump())
+        raise HTTPException(status_code=500, detail=f"예상치 못한 오류: {exc}") from exc
 
 
 @router.get("/auto-watch")
