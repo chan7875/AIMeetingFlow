@@ -779,6 +779,66 @@ function setupResize() {
   }
 }
 
+/* ── File Search / Filter ────────────────────────────────────────── */
+function filterTree(query) {
+  const clearBtn = document.getElementById('search-clear-btn');
+  clearBtn.style.display = query ? '' : 'none';
+
+  const items = document.querySelectorAll('#tree-container .tree-node');
+  if (!query) {
+    // Reset: show all, collapse all
+    items.forEach(node => {
+      node.style.display = '';
+      const item = node.querySelector('.tree-item');
+      if (item) item.classList.remove('search-highlight');
+    });
+    return;
+  }
+
+  const lowerQ = query.toLowerCase();
+
+  // For each tree node, determine visibility
+  items.forEach(node => {
+    const item = node.querySelector('.tree-item');
+    if (!item) return;
+
+    const isDir = item.dataset.type === 'directory';
+    const name = (item.textContent || '').toLowerCase();
+
+    if (isDir) {
+      // Directory: show if any child matches
+      const childNodes = node.querySelectorAll('.tree-item[data-type="file"]');
+      let hasMatch = false;
+      childNodes.forEach(child => {
+        if ((child.textContent || '').toLowerCase().includes(lowerQ)) {
+          hasMatch = true;
+        }
+      });
+      node.style.display = hasMatch ? '' : 'none';
+      if (hasMatch) {
+        // Expand directory
+        const childContainer = node.querySelector('.tree-children');
+        const arrow = node.querySelector('.tree-arrow');
+        if (childContainer) childContainer.style.display = 'block';
+        if (arrow) arrow.classList.add('open');
+      }
+      item.classList.remove('search-highlight');
+    } else {
+      // File: match name
+      const match = name.includes(lowerQ);
+      node.style.display = match ? '' : 'none';
+      item.classList.toggle('search-highlight', match);
+    }
+  });
+}
+
+function clearSearch() {
+  const input = document.getElementById('file-search-input');
+  input.value = '';
+  filterTree('');
+  input.focus();
+}
+
 /* ── Keyboard shortcuts ──────────────────────────────────────────── */
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
@@ -786,6 +846,24 @@ document.addEventListener('keydown', e => {
       const el = document.getElementById(id);
       if (el && el.style.display !== 'none') closeModal(id);
     });
+    // Clear search on Escape
+    const searchInput = document.getElementById('file-search-input');
+    if (document.activeElement === searchInput) {
+      clearSearch();
+      searchInput.blur();
+    }
+  }
+  // Ctrl+K / Cmd+K to focus search
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();
+    const searchInput = document.getElementById('file-search-input');
+    searchInput.focus();
+    searchInput.select();
+    // Open sidebar on mobile
+    if (isMobile()) {
+      document.getElementById('sidebar').classList.add('open');
+      document.getElementById('sidebar-overlay').classList.add('visible');
+    }
   }
   // Ctrl+Enter to run AI
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {

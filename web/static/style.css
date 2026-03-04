@@ -128,6 +128,42 @@ aside {
 }
 .icon-btn:hover { color: var(--accent); }
 
+/* Search box */
+.search-box {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.search-box input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 5px 8px;
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+}
+
+.search-box input:focus { border-color: var(--accent); }
+.search-box input::placeholder { color: var(--text-dim); }
+
+.search-clear-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+.search-clear-btn:hover { color: var(--red); }
+
+.tree-item.search-highlight { background: rgba(137,180,250,.15); }
+
 #tree-container {
   flex: 1;
   overflow-y: auto;

@@ -38,6 +38,10 @@
       <button class="icon-btn" id="download-sidebar-btn" onclick="downloadCurrentFile()" title="선택된 파일 다운로드" style="display:none">⬇</button>
       <button class="icon-btn" onclick="loadTree()" title="새로고침">↻</button>
     </div>
+    <div class="search-box">
+      <input type="text" id="file-search-input" placeholder="파일 검색... (Ctrl+K)" oninput="filterTree(this.value)">
+      <button class="search-clear-btn" id="search-clear-btn" onclick="clearSearch()" style="display:none">✕</button>
+    </div>
     <div id="tree-container">
       <div style="padding:16px;color:var(--text-dim);font-size:12px;">로딩 중...</div>
     </div>
