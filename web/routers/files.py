@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 
 from web.config import get_vault_path, set_vault_path, get_issue_folder
@@ -37,7 +37,7 @@ def _build_tree(path: Path, vault: Path) -> dict:
                     continue
                 if entry.is_dir():
                     children.append(_build_tree(entry, vault))
-                elif entry.suffix.lower() in {".md", ".txt"}:
+                elif entry.suffix.lower() in {".md", ".txt", ".pptx"}:
                     child_rel = str(entry.relative_to(vault))
                     children.append({"name": entry.name, "path": child_rel, "type": "file"})
         except PermissionError:
@@ -92,6 +92,26 @@ def get_file(path: str = ""):
         raise HTTPException(status_code=400, detail="파일이 아닙니다.")
     content = target.read_text(encoding="utf-8", errors="replace")
     return {"path": path, "name": target.name, "content": content}
+
+
+# ── Download ──────────────────────────────────────────────────────────────────
+
+@router.get("/download")
+def download_file(path: str = ""):
+    if not path:
+        raise HTTPException(status_code=400, detail="path 파라미터가 필요합니다.")
+    target = _safe_resolve(path)
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다.")
+    if not target.is_file():
+        raise HTTPException(status_code=400, detail="파일이 아닙니다.")
+    media_type = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
+    return FileResponse(
+        path=target,
+        filename=target.name,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{target.name}"'},
+    )
 
 
 # ── Upload ────────────────────────────────────────────────────────────────────

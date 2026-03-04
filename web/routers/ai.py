@@ -39,7 +39,7 @@ DEFAULT_PROMPT = """\
 """
 
 AUTO_WATCH_EXTENSIONS = {".md", ".txt"}
-AUTO_WATCH_EXCLUDED_DIR_NAMES = {".git", "__pycache__", "issues"}
+AUTO_WATCH_EXCLUDED_DIR_NAMES = {".git", "__pycache__", "issues", "Slides"}
 AUTO_WATCH_POLL_SEC = 2.0
 AUTO_WATCH_SETTLE_ATTEMPTS = 3
 AUTO_WATCH_SETTLE_INTERVAL_SEC = 0.5
@@ -100,7 +100,7 @@ def _scan_watch_candidates(vault: Path) -> set[str]:
 
         root_path = Path(root)
         for filename in files:
-            if filename.startswith("."):
+            if filename.startswith(".") or filename.startswith("_source_"):
                 continue
             if Path(filename).suffix.lower() not in AUTO_WATCH_EXTENSIONS:
                 continue

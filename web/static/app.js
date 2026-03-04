@@ -217,7 +217,8 @@ function renderTreeNode(node) {
   } else {
     const icon = document.createElement('span');
     icon.className = 'tree-icon';
-    icon.textContent = node.name.endsWith('.txt') ? '📝' : '📄';
+    const isPptx = node.name.endsWith('.pptx');
+    icon.textContent = isPptx ? '📊' : node.name.endsWith('.txt') ? '📝' : '📄';
     const label = document.createElement('span');
     label.textContent = node.name;
     label.style.flex = '1';
@@ -225,11 +226,24 @@ function renderTreeNode(node) {
     label.style.textOverflow = 'ellipsis';
     item.append(icon, label);
 
+    if (isPptx) {
+      const dlIcon = document.createElement('span');
+      dlIcon.className = 'tree-icon';
+      dlIcon.textContent = '⬇';
+      dlIcon.style.opacity = '0.6';
+      dlIcon.style.fontSize = '11px';
+      item.appendChild(dlIcon);
+    }
+
     item.addEventListener('click', () => {
       // Deactivate previous
       document.querySelectorAll('.tree-item.active').forEach(el => el.classList.remove('active'));
       item.classList.add('active');
-      openFile(node.path, node.name);
+      if (isPptx) {
+        downloadFile(node.path, node.name);
+      } else {
+        openFile(node.path, node.name);
+      }
     });
 
     wrapper.appendChild(item);
@@ -250,6 +264,7 @@ async function openFile(path, name) {
     document.getElementById('viewer-filename').textContent = data.name;
     document.getElementById('viewer-path').textContent = data.path;
     document.getElementById('summarize-btn').style.display = '';
+    document.getElementById('download-sidebar-btn').style.display = '';
 
     // Expand viewer if collapsed
     expandSection('viewer');
@@ -458,6 +473,22 @@ async function summarizeCurrentFile() {
   // Scroll to AI panel, then trigger save
   document.getElementById('ai-panel').scrollIntoView({ behavior: 'smooth' });
   await saveToIssue();
+}
+
+/* ── Download ────────────────────────────────────────────────────── */
+function downloadFile(path, name) {
+  const url = `/api/download?path=${encodeURIComponent(path)}`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name || '';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+function downloadCurrentFile() {
+  if (!state.currentFile) return toast('파일을 먼저 선택해 주세요.', 'error');
+  downloadFile(state.currentFile.path, state.currentFile.name);
 }
 
 function resetAIResult() {

@@ -16,8 +16,8 @@ NOTEBOOK_MAP_FILE = DATA_DIR / "nlm_notebooks.json"
 _CLEAN_ENV = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
 
 _notebook_map_lock = asyncio.Lock()
-SLIDE_DECK_READY_TIMEOUT_SEC = 360
-SLIDE_DECK_STATUS_POLL_SEC = 4
+SLIDE_DECK_READY_TIMEOUT_SEC = 900
+SLIDE_DECK_STATUS_POLL_SEC = 5
 NLM_STDOUT_TAIL_LIMIT: Final[int] = 2000
 SLIDE_CREATE_RETRY_COUNT: Final[int] = 3
 SLIDE_CREATE_RETRY_BASE_SEC: Final[float] = 8.0
@@ -296,6 +296,25 @@ def _extract_notebook_id(output: str) -> str:
     return ""
 
 
+async def _cleanup_sources(notebook_id: str) -> None:
+    """notebook의 기존 소스를 모두 삭제하여 누적을 방지한다."""
+    try:
+        output = await _run_nlm(["source", "list", notebook_id, "--json"], timeout_sec=30)
+        items = json.loads(output)
+        if not isinstance(items, list) or not items:
+            return
+        source_ids = [
+            item["id"] for item in items
+            if isinstance(item, dict) and item.get("id")
+        ]
+        if not source_ids:
+            return
+        await _run_nlm(["source", "delete", *source_ids, "--confirm"], timeout_sec=60)
+        logger.info("기존 소스 %d개 삭제 완료: notebook=%s", len(source_ids), notebook_id)
+    except Exception as exc:
+        logger.warning("소스 정리 실패 (무시): notebook=%s err=%s", notebook_id, exc)
+
+
 async def add_source_file(notebook_id: str, file_path: str) -> str:
     """notebook에 소스 파일을 추가한다."""
     source_text = Path(file_path).read_text(encoding="utf-8", errors="replace")
@@ -479,7 +498,14 @@ async def generate_slides_for_issue(
     temp_dir = vault / account / "Slides"
     temp_dir.mkdir(parents=True, exist_ok=True)
 
-    # 이슈 내용을 임시 md 파일로 저장
+    # 이전 실행에서 남은 _source_*.md 잔여 파일 정리
+    for leftover in temp_dir.glob("_source_*.md"):
+        try:
+            leftover.unlink()
+        except OSError:
+            pass
+
+    # 이슈 내용을 임시 md 파일로 저장 (1개만 생성)
     safe_title = re.sub(r"[^a-zA-Z0-9._-]+", "_", issue_title).strip("._-")
     if not safe_title:
         safe_title = "issue"
@@ -497,6 +523,9 @@ async def generate_slides_for_issue(
                 notebook_id = await ensure_notebook(account)
             except Exception as exc:
                 raise _set_slide_stage(exc, "notebook 확보") from exc
+
+            # 2.5. 기존 소스 정리 (누적 방지)
+            await _cleanup_sources(notebook_id)
 
             # 3. 소스 파일 추가
             try:
