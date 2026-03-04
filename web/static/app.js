@@ -78,13 +78,19 @@ function initTheme() {
   const saved = localStorage.getItem('theme');
   if (saved) {
     applyTheme(saved);
+  } else {
+    // No saved preference — update button icon to match effective system theme
+    const isLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+    const btn = document.getElementById('theme-toggle-btn');
+    if (btn) btn.innerHTML = `${isLight ? '🌙' : '☀️'} <span class="btn-text">테마</span>`;
   }
-  // If no saved preference, CSS handles prefers-color-scheme automatically
 }
 
 function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme');
-  const next = current === 'light' ? 'dark' : 'light';
+  // getAttribute returns null when no data-theme set → fall back to system preference
+  const attr = document.documentElement.getAttribute('data-theme');
+  const effective = attr || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  const next = effective === 'light' ? 'dark' : 'light';
   applyTheme(next);
   localStorage.setItem('theme', next);
 }
