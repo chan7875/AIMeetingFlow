@@ -25,6 +25,41 @@ marked.setOptions({
   gfm: true,
 });
 
+/* ── Mermaid.js setup ────────────────────────────────────────────── */
+if (typeof mermaid !== 'undefined') {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'dark',
+    securityLevel: 'loose',
+  });
+}
+
+async function renderMermaidBlocks(containerEl) {
+  if (typeof mermaid === 'undefined') return;
+
+  // Update mermaid theme based on current theme
+  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default', securityLevel: 'loose' });
+
+  const codeBlocks = containerEl.querySelectorAll('pre code.language-mermaid, pre code.hljs.language-mermaid');
+  let idx = 0;
+  for (const block of codeBlocks) {
+    const pre = block.parentElement;
+    const code = block.textContent;
+    const id = `mermaid-${Date.now()}-${idx++}`;
+    try {
+      const { svg } = await mermaid.render(id, code);
+      const div = document.createElement('div');
+      div.className = 'mermaid-diagram';
+      div.innerHTML = svg;
+      pre.replaceWith(div);
+    } catch (e) {
+      // If mermaid fails, leave the code block as-is
+      console.warn('Mermaid render error:', e);
+    }
+  }
+}
+
 /* ── Init ─────────────────────────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', () => {
   loadConfig();
@@ -324,6 +359,9 @@ async function openFile(path, name) {
     content.querySelectorAll('pre code').forEach(block => {
       hljs.highlightElement(block);
     });
+
+    // Render Mermaid diagrams
+    await renderMermaidBlocks(content);
 
     // Generate TOC from headings
     generateTOC(content);

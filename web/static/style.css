@@ -447,6 +447,22 @@ main {
   scroll-margin-top: 60px;
 }
 
+/* ── Mermaid Diagrams ─────────────────────────────────────── */
+.mermaid-diagram {
+  margin: 1em 0;
+  padding: 16px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
 /* ── AI Panel ─────────────────────────────────────────────── */
 #ai-panel {
   min-height: var(--ai-panel-h);
