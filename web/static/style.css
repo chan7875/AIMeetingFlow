@@ -631,6 +631,24 @@ main {
 .toast.info { border-color: var(--accent); color: var(--accent); }
 @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
 
+/* ── Focus Visible (접근성) ──────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.tree-item:focus-visible {
+  background: var(--surface2);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.section-bar:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

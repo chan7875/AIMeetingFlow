@@ -179,11 +179,13 @@ function renderTreeChildren(container, children) {
 function renderTreeNode(node) {
   const wrapper = document.createElement('div');
   wrapper.className = 'tree-node';
+  wrapper.setAttribute('role', 'treeitem');
 
   const item = document.createElement('div');
   item.className = 'tree-item';
   item.dataset.path = node.path;
   item.dataset.type = node.type;
+  item.setAttribute('tabindex', '0');
 
   if (node.type === 'directory') {
     const arrow = document.createElement('span');
@@ -198,16 +200,19 @@ function renderTreeNode(node) {
     label.style.overflow = 'hidden';
     label.style.textOverflow = 'ellipsis';
     item.append(arrow, icon, label);
+    item.setAttribute('aria-expanded', 'false');
 
     const childContainer = document.createElement('div');
     childContainer.className = 'tree-children';
     childContainer.style.display = 'none';
+    childContainer.setAttribute('role', 'group');
 
     item.addEventListener('click', () => {
       const isOpen = childContainer.style.display !== 'none';
       childContainer.style.display = isOpen ? 'none' : 'block';
       arrow.classList.toggle('open', !isOpen);
       icon.textContent = isOpen ? '📁' : '📂';
+      item.setAttribute('aria-expanded', String(!isOpen));
     });
 
     if (node.children && node.children.length > 0) {
@@ -729,12 +734,20 @@ function toast(message, type = 'info') {
 /* ── Collapsible Sections ────────────────────────────────────────── */
 function toggleSection(id) {
   const el = document.getElementById(id);
-  if (el) el.classList.toggle('collapsed');
+  if (!el) return;
+  el.classList.toggle('collapsed');
+  const isExpanded = !el.classList.contains('collapsed');
+  // Update aria-expanded on the section bar
+  const bar = el.querySelector('.section-bar[aria-expanded]');
+  if (bar) bar.setAttribute('aria-expanded', String(isExpanded));
 }
 
 function expandSection(id) {
   const el = document.getElementById(id);
-  if (el) el.classList.remove('collapsed');
+  if (!el) return;
+  el.classList.remove('collapsed');
+  const bar = el.querySelector('.section-bar[aria-expanded]');
+  if (bar) bar.setAttribute('aria-expanded', 'true');
 }
 
 /* ── Mobile Sidebar Drawer ───────────────────────────────────────── */
@@ -778,6 +791,37 @@ function setupResize() {
     sidebar.style.width = newW + 'px';
   }
 }
+
+/* ── Tree Keyboard Navigation ────────────────────────────────────── */
+document.addEventListener('keydown', e => {
+  const active = document.activeElement;
+  if (!active || !active.classList.contains('tree-item')) return;
+  if (!['ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key)) return;
+  e.preventDefault();
+
+  if (e.key === 'Enter' || e.key === ' ') {
+    active.click();
+    return;
+  }
+
+  const items = Array.from(document.querySelectorAll('#tree-container .tree-item'));
+  const visible = items.filter(el => {
+    let node = el.closest('.tree-node');
+    while (node) {
+      if (node.style.display === 'none') return false;
+      node = node.parentElement?.closest('.tree-node');
+    }
+    return true;
+  });
+  const idx = visible.indexOf(active);
+  if (idx < 0) return;
+
+  if (e.key === 'ArrowDown' && idx < visible.length - 1) {
+    visible[idx + 1].focus();
+  } else if (e.key === 'ArrowUp' && idx > 0) {
+    visible[idx - 1].focus();
+  }
+});
 
 /* ── File Search / Filter ────────────────────────────────────────── */
 function filterTree(query) {

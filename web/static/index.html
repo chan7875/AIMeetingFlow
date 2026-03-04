@@ -14,8 +14,8 @@
 <body>
 
 <!-- ── Header ──────────────────────────────────────────────────────── -->
-<header>
-  <button class="header-btn" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="파일 탐색기 열기/닫기">☰</button>
+<header role="banner">
+  <button class="header-btn" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="파일 탐색기 열기/닫기" aria-label="파일 탐색기 열기/닫기">☰</button>
   <h1>📓 Vault Viewer</h1>
   <div class="vault-path" id="vault-path-display" title="클릭하여 경로 변경">로딩 중...</div>
   <button class="header-btn" onclick="openSettingsModal()" title="설정">⚙ <span class="btn-text">설정</span></button>
@@ -32,31 +32,31 @@
 <div class="layout">
 
   <!-- Sidebar -->
-  <aside id="sidebar">
+  <aside id="sidebar" role="navigation" aria-label="파일 탐색기">
     <div class="sidebar-header">
       <span>파일 탐색기</span>
-      <button class="icon-btn" id="download-sidebar-btn" onclick="downloadCurrentFile()" title="선택된 파일 다운로드" style="display:none">⬇</button>
-      <button class="icon-btn" onclick="loadTree()" title="새로고침">↻</button>
+      <button class="icon-btn" id="download-sidebar-btn" onclick="downloadCurrentFile()" title="선택된 파일 다운로드" aria-label="선택된 파일 다운로드" style="display:none">⬇</button>
+      <button class="icon-btn" onclick="loadTree()" title="새로고침" aria-label="파일 트리 새로고침">↻</button>
     </div>
     <div class="search-box">
-      <input type="text" id="file-search-input" placeholder="파일 검색... (Ctrl+K)" oninput="filterTree(this.value)">
-      <button class="search-clear-btn" id="search-clear-btn" onclick="clearSearch()" style="display:none">✕</button>
+      <input type="text" id="file-search-input" placeholder="파일 검색... (Ctrl+K)" oninput="filterTree(this.value)" aria-label="파일 검색">
+      <button class="search-clear-btn" id="search-clear-btn" onclick="clearSearch()" style="display:none" aria-label="검색 초기화">✕</button>
     </div>
-    <div id="tree-container">
+    <div id="tree-container" role="tree" aria-label="파일 트리">
       <div style="padding:16px;color:var(--text-dim);font-size:12px;">로딩 중...</div>
     </div>
     <div class="resize-handle" id="resize-handle"></div>
   </aside>
 
   <!-- Main -->
-  <main>
+  <main role="main">
     <!-- Viewer -->
-    <div id="viewer" class="collapsible-section">
-      <div id="viewer-header" class="section-bar" onclick="toggleSection('viewer')">
+    <div id="viewer" class="collapsible-section" role="region" aria-label="마크다운 뷰어">
+      <div id="viewer-header" class="section-bar" onclick="toggleSection('viewer')" role="button" aria-expanded="true" tabindex="0">
         <span class="section-bar-icon">📄</span>
         <span id="viewer-filename" class="section-bar-title">마크다운 뷰어</span>
         <span id="viewer-path" class="section-bar-sub"></span>
-        <button class="icon-btn" id="summarize-btn" style="display:none" onclick="event.stopPropagation(); summarizeCurrentFile()" title="AI 요약 저장">🤖</button>
+        <button class="icon-btn" id="summarize-btn" style="display:none" onclick="event.stopPropagation(); summarizeCurrentFile()" title="AI 요약 저장" aria-label="AI 요약 저장">🤖</button>
         <span class="section-chevron">▾</span>
       </div>
       <div class="section-content" id="viewer-scroll">
@@ -84,7 +84,7 @@
       <div class="ai-panel-body">
         <!-- Prompt section -->
         <div id="prompt-section" class="collapsible-section">
-          <div class="section-bar" onclick="toggleSection('prompt-section')">
+          <div class="section-bar" onclick="toggleSection('prompt-section')" role="button" aria-expanded="true" tabindex="0">
             <span class="section-bar-icon">✏</span>
             <span class="section-bar-title">프롬프트</span>
             <span class="section-chevron">▾</span>
@@ -102,7 +102,7 @@
         </div>
         <!-- Result section -->
         <div id="result-section" class="collapsible-section">
-          <div class="section-bar" onclick="toggleSection('result-section')">
+          <div class="section-bar" onclick="toggleSection('result-section')" role="button" aria-expanded="true" tabindex="0">
             <span class="section-bar-icon">📋</span>
             <span class="section-bar-title">실행결과</span>
             <span class="section-chevron">▾</span>
@@ -121,7 +121,7 @@
 
 <!-- ── Modal: Settings ────────────────────────────────────────────── -->
 <div class="modal-overlay" id="settings-modal" style="display:none;" onclick="closeModal('settings-modal')">
-  <div class="modal" onclick="event.stopPropagation()">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="설정" onclick="event.stopPropagation()">
     <h3>⚙ 설정</h3>
     <div>
       <label>볼트(Vault) 폴더 경로</label>
@@ -136,7 +136,7 @@
 
 <!-- ── Modal: Upload ──────────────────────────────────────────────── -->
 <div class="modal-overlay" id="upload-modal" style="display:none;" onclick="closeModal('upload-modal')">
-  <div class="modal" onclick="event.stopPropagation()">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="파일 업로드" onclick="event.stopPropagation()">
     <h3>⬆ 파일 업로드</h3>
     <div
       class="drop-zone"
@@ -169,7 +169,7 @@
 
 <!-- ── Modal: Git Output ──────────────────────────────────────────── -->
 <div class="modal-overlay" id="git-modal" style="display:none;" onclick="closeModal('git-modal')">
-  <div class="modal" onclick="event.stopPropagation()" style="min-width:520px;">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Git 실행 결과" onclick="event.stopPropagation()" style="min-width:520px;">
     <h3 id="git-modal-title">Git 실행 중...</h3>
     <div class="terminal-output" id="git-output"></div>
     <div class="modal-actions">
@@ -180,7 +180,7 @@
 
 <!-- ── Modal: Git Push ────────────────────────────────────────────── -->
 <div class="modal-overlay" id="git-push-modal" style="display:none;" onclick="closeModal('git-push-modal')">
-  <div class="modal" onclick="event.stopPropagation()">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Git Push" onclick="event.stopPropagation()">
     <h3>⬆ Git Push</h3>
     <div>
       <label>커밋 메시지</label>
