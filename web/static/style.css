@@ -7,7 +7,7 @@
   --surface2: #2a2a3e;
   --border: #3a3a5c;
   --text: #cdd6f4;
-  --text-dim: #7f849c;
+  --text-dim: #9399b2;
   --accent: #89b4fa;
   --accent2: #cba6f7;
   --green: #a6e3a1;
@@ -16,6 +16,42 @@
   --header-h: 52px;
   --sidebar-w: 280px;
   --ai-panel-h: 320px;
+}
+
+/* ── Light Theme ─────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg: #eff1f5;
+  --surface: #e6e9ef;
+  --surface2: #dce0e8;
+  --border: #bcc0cc;
+  --text: #4c4f69;
+  --text-dim: #6c6f85;
+  --accent: #1e66f5;
+  --accent2: #8839ef;
+  --green: #40a02b;
+  --red: #d20f39;
+  --yellow: #df8e1d;
+}
+
+[data-theme="light"] .tree-item.active { color: #fff; }
+[data-theme="light"] .tree-item.active .tree-icon { color: #fff; }
+[data-theme="light"] .engine-btn.active { color: #fff; }
+[data-theme="light"] .toast-close:hover { background: rgba(0,0,0,.08); }
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #eff1f5;
+    --surface: #e6e9ef;
+    --surface2: #dce0e8;
+    --border: #bcc0cc;
+    --text: #4c4f69;
+    --text-dim: #6c6f85;
+    --accent: #1e66f5;
+    --accent2: #8839ef;
+    --green: #40a02b;
+    --red: #d20f39;
+    --yellow: #df8e1d;
+  }
 }
 
 body {

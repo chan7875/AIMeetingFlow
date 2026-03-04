@@ -8,7 +8,8 @@
   <!-- marked.js for Markdown rendering -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <!-- highlight.js for code syntax highlighting -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <link id="hljs-dark-theme" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <link id="hljs-light-theme" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" disabled>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 </head>
 <body>
@@ -18,6 +19,7 @@
   <button class="header-btn" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="파일 탐색기 열기/닫기" aria-label="파일 탐색기 열기/닫기">☰</button>
   <h1>📓 Vault Viewer</h1>
   <div class="vault-path" id="vault-path-display" title="클릭하여 경로 변경">로딩 중...</div>
+  <button class="header-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="테마 전환" aria-label="테마 전환">🌓 <span class="btn-text">테마</span></button>
   <button class="header-btn" onclick="openSettingsModal()" title="설정">⚙ <span class="btn-text">설정</span></button>
   <button class="header-btn" onclick="openUploadModal()" title="파일 업로드">⬆ <span class="btn-text">업로드</span></button>
   <button class="header-btn" id="auto-watch-btn" onclick="toggleAutoWatch()" title="새 파일 자동 Codex 분석">🛰 <span class="btn-text">자동 분석 OFF</span></button>

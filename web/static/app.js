@@ -32,7 +32,39 @@ window.addEventListener('DOMContentLoaded', () => {
   loadAutoWatchStatus();
   startAutoWatchPolling();
   setupResize();
+  initTheme();
 });
+
+/* ── Theme ───────────────────────────────────────────────────────── */
+function initTheme() {
+  const saved = localStorage.getItem('theme');
+  if (saved) {
+    applyTheme(saved);
+  }
+  // If no saved preference, CSS handles prefers-color-scheme automatically
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'light' ? 'dark' : 'light';
+  applyTheme(next);
+  localStorage.setItem('theme', next);
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  const darkSheet = document.getElementById('hljs-dark-theme');
+  const lightSheet = document.getElementById('hljs-light-theme');
+  if (darkSheet && lightSheet) {
+    darkSheet.disabled = theme === 'light';
+    lightSheet.disabled = theme !== 'light';
+  }
+  // Update button icon
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) {
+    btn.innerHTML = `${theme === 'light' ? '🌙' : '☀️'} <span class="btn-text">테마</span>`;
+  }
+}
 
 /* ── Config ───────────────────────────────────────────────────────── */
 async function loadConfig() {
