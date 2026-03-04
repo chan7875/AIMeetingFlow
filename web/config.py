@@ -13,6 +13,12 @@ DEFAULT_AUTO_WATCH_ENABLED = os.environ.get("AUTO_WATCH_ENABLED", "false").strip
     "yes",
     "on",
 }
+DEFAULT_NLM_ENABLED = os.environ.get("NLM_ENABLED", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 
 def _load() -> dict:
@@ -61,5 +67,22 @@ def get_auto_watch_enabled() -> bool:
 def set_auto_watch_enabled(enabled: bool) -> bool:
     data = _load()
     data["auto_watch_enabled"] = bool(enabled)
+    _save(data)
+    return bool(enabled)
+
+
+def get_nlm_enabled() -> bool:
+    data = _load()
+    raw = data.get("nlm_enabled")
+    if raw is None:
+        return DEFAULT_NLM_ENABLED
+    if isinstance(raw, str):
+        return raw.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(raw)
+
+
+def set_nlm_enabled(enabled: bool) -> bool:
+    data = _load()
+    data["nlm_enabled"] = bool(enabled)
     _save(data)
     return bool(enabled)

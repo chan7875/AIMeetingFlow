@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from web.routers import files as files_router
 from web.routers import ai as ai_router
 from web.routers import git as git_router
+from web.routers import slides as slides_router
 
 
 @asynccontextmanager
@@ -30,6 +31,7 @@ app = FastAPI(title="Obsidian Vault Viewer", version="1.0.0", lifespan=lifespan)
 app.include_router(files_router.router)
 app.include_router(ai_router.router)
 app.include_router(git_router.router)
+app.include_router(slides_router.router)
 
 # Static files
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
