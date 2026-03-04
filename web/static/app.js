@@ -11,6 +11,7 @@ const state = {
   autoWatchStatus: null,
   autoWatchPollTimer: null,
   autoWatchLastSeenCount: 0,
+  abortController: null, // for AI streaming cancellation
 };
 
 /* ── Marked.js setup ─────────────────────────────────────────────── */
@@ -68,6 +69,8 @@ window.addEventListener('DOMContentLoaded', () => {
   startAutoWatchPolling();
   setupResize();
   initTheme();
+  loadGitStatus();
+  setInterval(loadGitStatus, 30000); // refresh badge every 30s
 });
 
 /* ── Theme ───────────────────────────────────────────────────────── */
@@ -225,11 +228,16 @@ async function loadTree() {
     const res = await fetch('/api/tree');
     if (!res.ok) throw new Error((await res.json()).detail);
     state.treeData = await res.json();
-    container.innerHTML = '';
-    if (state.treeData.children && state.treeData.children.length > 0) {
-      renderTreeChildren(container, state.treeData.children);
+    const searchQuery = document.getElementById('file-search-input')?.value || '';
+    if (searchQuery.trim()) {
+      filterTree(searchQuery);
     } else {
-      container.innerHTML = '<div style="padding:16px;color:var(--text-dim);font-size:12px;">마크다운 파일이 없습니다.</div>';
+      container.innerHTML = '';
+      if (state.treeData.children && state.treeData.children.length > 0) {
+        renderTreeChildren(container, state.treeData.children);
+      } else {
+        container.innerHTML = '<div style="padding:16px;color:var(--text-dim);font-size:12px;">마크다운 파일이 없습니다.</div>';
+      }
     }
   } catch (e) {
     container.innerHTML = `<div style="padding:16px;color:var(--red);font-size:12px;">오류: ${e.message}</div>`;
@@ -495,15 +503,17 @@ async function runAI() {
   }
 }
 
-// Better SSE streaming
+// Better SSE streaming with cancel support
 async function runAIStream() {
   if (!state.currentFile) return toast('먼저 파일을 선택해 주세요.', 'error');
   const prompt = document.getElementById('prompt-textarea').value.trim();
   if (!prompt) return toast('프롬프트를 입력해 주세요.', 'error');
 
   const runBtn = document.getElementById('run-btn');
+  const cancelBtn = document.getElementById('cancel-btn');
   runBtn.disabled = true;
   runBtn.innerHTML = '<span class="spinner"></span> 실행 중...';
+  cancelBtn.style.display = '';
 
   // 결과 섹션 펼치기
   expandSection('result-section');
@@ -513,6 +523,7 @@ async function runAIStream() {
   state.aiResult = null;
 
   const accumulated = [];
+  state.abortController = new AbortController();
 
   try {
     const res = await fetch('/api/ai/run', {
@@ -524,6 +535,7 @@ async function runAIStream() {
         prompt,
         file_path: state.currentFile.path,
       }),
+      signal: state.abortController.signal,
     });
 
     await readSSE(res, (event, data) => {
@@ -544,10 +556,23 @@ async function runAIStream() {
       }
     });
   } catch (e) {
-    toast(`AI 실행 오류: ${e.message}`, 'error');
+    if (e.name === 'AbortError') {
+      resultArea.innerHTML = '<div id="result-placeholder" style="color:var(--text-dim);font-style:italic;">실행이 취소되었습니다.</div>';
+      toast('AI 실행 취소됨', 'info');
+    } else {
+      toast(`AI 실행 오류: ${e.message}`, 'error');
+    }
   } finally {
+    state.abortController = null;
     runBtn.disabled = false;
     runBtn.textContent = '▶ 실행';
+    cancelBtn.style.display = 'none';
+  }
+}
+
+function cancelAI() {
+  if (state.abortController) {
+    state.abortController.abort();
   }
 }
 
@@ -749,6 +774,7 @@ async function runGit(action) {
         document.getElementById('git-modal-title').textContent = `${title} 완료`;
         toast(`${title} 완료`, 'success');
         loadTree();
+        loadGitStatus();
       } else if (event === 'error') {
         document.getElementById('git-modal-title').textContent = `${title} 오류`;
         toast(`${title} 오류`, 'error');
@@ -783,6 +809,7 @@ async function runGitPush() {
       if (event === 'done') {
         document.getElementById('git-modal-title').textContent = '⬆ Git Push 완료';
         toast('Git Push 완료', 'success');
+        loadGitStatus();
       } else if (event === 'error') {
         document.getElementById('git-modal-title').textContent = '⬆ Git Push 오류';
       }
@@ -791,6 +818,32 @@ async function runGitPush() {
     outputEl.textContent += `\n오류: ${e.message}`;
   } finally {
     document.getElementById('git-close-btn').disabled = false;
+  }
+}
+
+/* ── Git Status Badge ────────────────────────────────────────────── */
+async function loadGitStatus() {
+  const badge = document.getElementById('git-badge');
+  if (!badge) return;
+  try {
+    const res = await fetch('/api/git/status');
+    if (!res.ok) { badge.style.display = 'none'; return; }
+    const data = await res.json();
+    if (!data.is_git_repo || !data.status) {
+      badge.style.display = 'none';
+      return;
+    }
+    // status is "git status --short" output; count non-empty lines
+    const count = data.status.split('\n').filter(l => l.trim()).length;
+    if (count === 0) {
+      badge.style.display = 'none';
+    } else {
+      badge.textContent = count;
+      badge.style.display = 'inline-flex';
+      badge.title = data.status;
+    }
+  } catch {
+    badge.style.display = 'none';
   }
 }
 

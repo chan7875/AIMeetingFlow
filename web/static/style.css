@@ -532,6 +532,9 @@ main {
 .btn-secondary:hover { border-color: var(--accent2); }
 .btn-secondary:disabled { opacity: .4; cursor: not-allowed; }
 
+.btn-cancel { background: var(--red); color: #1e1e2e; }
+.btn-cancel:hover { opacity: .85; }
+
 .spacer { flex: 1; }
 
 .ai-panel-body {
@@ -808,6 +811,44 @@ main {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* ── Git Badge ────────────────────────────────────────────────────── */
+.git-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  margin-left: 5px;
+  background: var(--red);
+  color: #1e1e2e;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 8px;
+  line-height: 1;
+}
+
+/* ── Sidebar Search ────────────────────────────────────────────────── */
+.sidebar-search {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sidebar-search input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 12px;
+  padding: 5px 8px;
+  outline: none;
+  transition: border-color .15s;
+}
+.sidebar-search input:focus { border-color: var(--accent); }
+.sidebar-search input::placeholder { color: var(--text-dim); }
 
 /* ── Sidebar Overlay (mobile backdrop) ───────────────────────────── */
 .sidebar-overlay {

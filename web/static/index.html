@@ -26,7 +26,7 @@
   <button class="header-btn" onclick="openUploadModal()" title="파일 업로드">⬆ <span class="btn-text">업로드</span></button>
   <button class="header-btn" id="auto-watch-btn" onclick="toggleAutoWatch()" title="새 파일 자동 Codex 분석">🛰 <span class="btn-text">자동 분석 OFF</span></button>
   <button class="header-btn success" onclick="runGit('pull')" title="Git Pull">⬇ <span class="btn-text">Pull</span></button>
-  <button class="header-btn danger" onclick="openGitPushModal()" title="Git Push">⬆ <span class="btn-text">Push</span></button>
+  <button class="header-btn danger" onclick="openGitPushModal()" title="Git Push">⬆ <span class="btn-text">Push</span><span id="git-badge" class="git-badge" style="display:none"></span></button>
 </header>
 
 <!-- ── Sidebar Overlay (mobile) ─────────────────────────────────── -->
@@ -90,6 +90,7 @@
         </div>
         <div class="spacer"></div>
         <button class="btn btn-primary" id="run-btn" onclick="runAI()" disabled>▶ 실행</button>
+        <button class="btn btn-cancel" id="cancel-btn" onclick="cancelAI()" style="display:none">✕ 중단</button>
         <button class="btn btn-secondary" id="save-btn" onclick="saveToIssue()" disabled>💾 issue 저장</button>
       </div>
       <div class="ai-panel-body">
