@@ -651,6 +651,32 @@ main {
 .toast.info { border-color: var(--accent); color: var(--accent); }
 @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
 
+/* ── Context Menu ────────────────────────────────────────────── */
+.context-menu {
+  position: fixed;
+  z-index: 3000;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 0;
+  min-width: 160px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.3);
+}
+
+.context-menu-item {
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background .1s;
+}
+
+.context-menu-item:hover { background: var(--surface2); }
+.context-menu-danger { color: var(--red); }
+.context-menu-danger:hover { background: rgba(243,139,168,.1); }
+
 /* ── Focus Visible (접근성) ──────────────────────────────────── */
 :focus-visible {
   outline: 2px solid var(--accent);

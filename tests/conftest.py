@@ -18,6 +18,7 @@ def tmp_vault(tmp_path):
 @pytest.fixture
 def client(tmp_vault):
     """FastAPI test client with temporary vault."""
-    with patch("web.config.get_vault_path", return_value=tmp_vault):
+    with patch("web.config.get_vault_path", return_value=tmp_vault), \
+         patch("web.routers.files.get_vault_path", return_value=tmp_vault):
         from web.main import app
         yield TestClient(app)

@@ -215,6 +215,10 @@ function renderTreeNode(node) {
       item.setAttribute('aria-expanded', String(!isOpen));
     });
 
+    item.addEventListener('contextmenu', e => {
+      showContextMenu(e, node.path, node.name, 'directory');
+    });
+
     if (node.children && node.children.length > 0) {
       renderTreeChildren(childContainer, node.children);
     }
@@ -249,6 +253,10 @@ function renderTreeNode(node) {
       } else {
         openFile(node.path, node.name);
       }
+    });
+
+    item.addEventListener('contextmenu', e => {
+      showContextMenu(e, node.path, node.name, 'file');
     });
 
     wrapper.appendChild(item);
@@ -806,6 +814,74 @@ function setupResize() {
   function onMouseMove(e) {
     const newW = Math.max(180, Math.min(480, startW + e.clientX - startX));
     sidebar.style.width = newW + 'px';
+  }
+}
+
+/* ── Context Menu ────────────────────────────────────────────────── */
+let contextMenuTarget = null; // { path, name, type }
+
+function showContextMenu(e, path, name, type) {
+  e.preventDefault();
+  contextMenuTarget = { path, name, type };
+  const menu = document.getElementById('context-menu');
+  menu.style.display = 'block';
+  menu.style.left = Math.min(e.clientX, window.innerWidth - 180) + 'px';
+  menu.style.top = Math.min(e.clientY, window.innerHeight - 120) + 'px';
+}
+
+function hideContextMenu() {
+  document.getElementById('context-menu').style.display = 'none';
+  contextMenuTarget = null;
+}
+
+document.addEventListener('click', hideContextMenu);
+
+async function contextMenuAction(action) {
+  if (!contextMenuTarget) return;
+  const { path, name, type } = contextMenuTarget;
+  hideContextMenu();
+
+  if (action === 'download') {
+    downloadFile(path, name);
+  } else if (action === 'rename') {
+    const newName = prompt(`새 이름을 입력하세요:`, name);
+    if (!newName || newName === name) return;
+    try {
+      const res = await fetch('/api/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, new_name: newName }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || '이름 변경 실패');
+      }
+      toast(`이름 변경 완료: ${newName}`, 'success');
+      loadTree();
+    } catch (e) {
+      toast(`이름 변경 실패: ${e.message}`, 'error');
+    }
+  } else if (action === 'delete') {
+    if (!confirm(`"${name}" 파일을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+    try {
+      const res = await fetch('/api/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || '삭제 실패');
+      }
+      toast(`삭제 완료: ${name}`, 'success');
+      if (state.currentFile && state.currentFile.path === path) {
+        state.currentFile = null;
+        document.getElementById('viewer-content').innerHTML = '<div id="viewer-placeholder"><div class="placeholder-icon">📄</div><div>왼쪽 트리에서 마크다운 파일을 선택하세요</div></div>';
+      }
+      loadTree();
+    } catch (e) {
+      toast(`삭제 실패: ${e.message}`, 'error');
+    }
   }
 }
 

@@ -52,6 +52,15 @@ class ConfigBody(BaseModel):
     vault_path: str
 
 
+class RenameBody(BaseModel):
+    path: str
+    new_name: str
+
+
+class DeleteBody(BaseModel):
+    path: str
+
+
 @router.get("/config")
 def get_config():
     vault = get_vault_path()
@@ -112,6 +121,42 @@ def download_file(path: str = ""):
         media_type=media_type,
         headers={"Content-Disposition": f'attachment; filename="{target.name}"'},
     )
+
+
+# ── Rename ───────────────────────────────────────────────────────────────────
+
+@router.post("/rename")
+def rename_file(body: RenameBody):
+    if not body.path:
+        raise HTTPException(status_code=400, detail="path 파라미터가 필요합니다.")
+    if not body.new_name or "/" in body.new_name or "\\" in body.new_name:
+        raise HTTPException(status_code=400, detail="유효한 새 파일명을 입력해 주세요.")
+    target = _safe_resolve(body.path)
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다.")
+    new_path = target.parent / body.new_name
+    if new_path.exists():
+        raise HTTPException(status_code=409, detail="같은 이름의 파일이 이미 존재합니다.")
+    target.rename(new_path)
+    vault = get_vault_path()
+    return {"old_path": body.path, "new_path": str(new_path.relative_to(vault)), "name": body.new_name}
+
+
+# ── Delete ───────────────────────────────────────────────────────────────────
+
+@router.post("/delete")
+def delete_file(body: DeleteBody):
+    if not body.path:
+        raise HTTPException(status_code=400, detail="path 파라미터가 필요합니다.")
+    target = _safe_resolve(body.path)
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다.")
+    if target.is_dir():
+        import shutil
+        shutil.rmtree(target)
+    else:
+        target.unlink()
+    return {"deleted": body.path}
 
 
 # ── Upload ────────────────────────────────────────────────────────────────────
