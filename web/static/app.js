@@ -726,9 +726,26 @@ function toast(message, type = 'info') {
   const container = document.getElementById('toast-container');
   const el = document.createElement('div');
   el.className = `toast ${type}`;
-  el.textContent = message;
+  el.setAttribute('role', 'alert');
+
+  const msgSpan = document.createElement('span');
+  msgSpan.className = 'toast-message';
+  msgSpan.textContent = message;
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'toast-close';
+  closeBtn.innerHTML = '✕';
+  closeBtn.setAttribute('aria-label', '알림 닫기');
+  closeBtn.onclick = () => el.remove();
+
+  el.append(msgSpan, closeBtn);
+  el.addEventListener('click', () => el.remove());
   container.appendChild(el);
-  setTimeout(() => el.remove(), 3500);
+
+  // Error toasts stay until manually closed; others auto-dismiss
+  if (type !== 'error') {
+    setTimeout(() => el.remove(), 3500);
+  }
 }
 
 /* ── Collapsible Sections ────────────────────────────────────────── */
