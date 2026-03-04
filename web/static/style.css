@@ -355,6 +355,62 @@ main {
 #viewer-content hr { border: none; border-top: 1px solid var(--border); margin: 1.5em 0; }
 #viewer-content img { max-width: 100%; border-radius: 6px; }
 
+/* ── TOC (Table of Contents) ──────────────────────────────── */
+#toc-container {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.toc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+
+.toc-header:hover { color: var(--accent); }
+
+.toc-toggle {
+  font-size: 11px;
+  transition: transform .2s;
+}
+
+.toc-list {
+  list-style: none;
+  padding: 0 16px 8px;
+  margin: 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.toc-list.collapsed { display: none; }
+.toc-list.collapsed + .toc-toggle { transform: rotate(-90deg); }
+
+.toc-item {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 2px 0;
+  border-radius: 3px;
+  transition: color .1s;
+}
+
+.toc-item:hover { color: var(--accent); }
+.toc-item.toc-h1 { padding-left: 0; font-weight: 600; color: var(--text); }
+.toc-item.toc-h2 { padding-left: 14px; }
+.toc-item.toc-h3 { padding-left: 28px; font-size: 11px; }
+
+/* Heading anchor links */
+#viewer-content h1, #viewer-content h2, #viewer-content h3 {
+  scroll-margin-top: 60px;
+}
+
 /* ── AI Panel ─────────────────────────────────────────────── */
 #ai-panel {
   min-height: var(--ai-panel-h);

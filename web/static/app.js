@@ -293,6 +293,9 @@ async function openFile(path, name) {
       hljs.highlightElement(block);
     });
 
+    // Generate TOC from headings
+    generateTOC(content);
+
     // Scroll to top
     document.getElementById('viewer-scroll').scrollTop = 0;
 
@@ -308,6 +311,42 @@ async function openFile(path, name) {
   } catch (e) {
     toast(`파일 열기 실패: ${e.message}`, 'error');
   }
+}
+
+/* ── TOC (Table of Contents) ─────────────────────────────────────── */
+function generateTOC(contentEl) {
+  const tocContainer = document.getElementById('toc-container');
+  const tocList = document.getElementById('toc-list');
+  tocList.innerHTML = '';
+
+  const headings = contentEl.querySelectorAll('h1, h2, h3');
+  if (headings.length < 2) {
+    tocContainer.style.display = 'none';
+    return;
+  }
+
+  headings.forEach((heading, i) => {
+    // Add anchor id to heading
+    const id = 'heading-' + i;
+    heading.id = id;
+
+    const li = document.createElement('li');
+    li.className = `toc-item toc-${heading.tagName.toLowerCase()}`;
+    li.textContent = heading.textContent;
+    li.onclick = () => {
+      heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    tocList.appendChild(li);
+  });
+
+  tocContainer.style.display = '';
+}
+
+function toggleToc() {
+  const tocList = document.getElementById('toc-list');
+  const toggle = document.getElementById('toc-toggle');
+  const isCollapsed = tocList.classList.toggle('collapsed');
+  toggle.style.transform = isCollapsed ? 'rotate(-90deg)' : '';
 }
 
 /* ── Engine Select ───────────────────────────────────────────────── */
