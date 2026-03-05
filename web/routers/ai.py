@@ -680,7 +680,31 @@ async def save_result(body: SaveResultBody):
         ai_output = (body.ai_output or "").strip()
         if not ai_output:
             raise HTTPException(status_code=400, detail="저장할 AI 결과가 비어 있습니다.")
-        return _save_ai_output(vault, body.file_path, source_abs, ai_output)
+        result = _save_ai_output(vault, body.file_path, source_abs, ai_output)
+
+        if get_nlm_enabled():
+            saved_path = result.get("saved_path", "")
+            if saved_path:
+                try:
+                    saved_rel = Path(saved_path)
+                    account = saved_rel.parts[0] if len(saved_rel.parts) > 1 else ""
+                    if account:
+                        saved_abs = vault / saved_rel
+                        issue_content = saved_abs.read_text(encoding="utf-8", errors="replace") if saved_abs.exists() else ""
+                        if issue_content:
+                            asyncio.create_task(
+                                _trigger_slide_generation(
+                                    account=account,
+                                    issue_content=issue_content,
+                                    issue_title=saved_abs.stem,
+                                    issue_md_name=saved_abs.name,
+                                ),
+                                name=f"save-result-slide-gen-{account}",
+                            )
+                            result["slide_triggered"] = True
+                except Exception as exc:
+                    logger.warning("save-result 후 슬라이드 생성 예약 실패: file=%s, err=%s", saved_path, exc)
+        return result
     except HTTPException:
         raise
     except PermissionError as exc:

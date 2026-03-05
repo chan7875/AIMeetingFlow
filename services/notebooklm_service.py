@@ -11,9 +11,22 @@ logger = logging.getLogger("notebooklm")
 DATA_DIR = Path(__file__).parent.parent / "data"
 NOTEBOOK_MAP_FILE = DATA_DIR / "nlm_notebooks.json"
 
-# nlm CLI가 Claude Code 내부에서 실행될 때 nested session 오류를 막기 위해
-# CLAUDECODE 환경변수를 제거한 환경을 준비한다.
-_CLEAN_ENV = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+
+def _build_clean_env() -> dict[str, str]:
+    """CLAUDECODE를 제거하고, uv tool 설치 경로를 PATH에 추가한 환경을 반환한다."""
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+    # uv tool install 기본 경로 (~/.local/bin)를 PATH에 추가한다.
+    # 서버를 Claude Code 등 제한된 shell에서 실행할 경우 해당 경로가 PATH에 없을 수 있다.
+    extra = str(Path.home() / ".local" / "bin")
+    current_path = env.get("PATH", "")
+    path_parts = [p for p in current_path.split(os.pathsep) if p]
+    if extra not in path_parts:
+        path_parts.insert(0, extra)
+    env["PATH"] = os.pathsep.join(path_parts)
+    return env
+
+
+_CLEAN_ENV = _build_clean_env()
 
 _notebook_map_lock = asyncio.Lock()
 SLIDE_DECK_READY_TIMEOUT_SEC = 900
@@ -213,13 +226,14 @@ async def _run_nlm(args: list[str], timeout_sec: int = 120) -> str:
 
     if proc.returncode != 0:
         stdout_tail = stdout_text[:NLM_STDOUT_TAIL_LIMIT] if len(stdout_text) > NLM_STDOUT_TAIL_LIMIT else stdout_text
+        parts = []
         if stderr_text:
-            detail = f"{stderr_text}"
-        elif stdout_tail:
-            detail = f"STDOUT: {stdout_tail}"
-        else:
-            detail = f"nlm 실행 실패 (returncode={proc.returncode})"
-        raise RuntimeError(detail)
+            parts.append(f"STDERR: {stderr_text}")
+        if stdout_tail:
+            parts.append(f"STDOUT: {stdout_tail}")
+        if not parts:
+            parts.append(f"nlm 실행 실패 (returncode={proc.returncode})")
+        raise RuntimeError("\n".join(parts))
 
     logger.info("nlm CLI done: returncode=%s stdout_len=%s", proc.returncode, len(stdout_text))
     return stdout_text
@@ -486,7 +500,7 @@ async def download_slides(
         output_path = output_path.with_suffix(".pptx")
     output_file = str(output_path)
     before_files = {p.name: p.stat().st_mtime_ns for p in out_path.iterdir() if p.is_file()}
-    args = ["download", "slide-deck", notebook_id, "--format", "pptx", "--output", output_file]
+    args = ["download", "slide-deck", notebook_id, "--format", "pptx", "--output", output_file, "--no-progress"]
     if artifact_id:
         args.extend(["--id", artifact_id])
     await _run_nlm(
