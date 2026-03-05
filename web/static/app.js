@@ -200,6 +200,7 @@ window.addEventListener('DOMContentLoaded', () => {
   initRecentFiles();
   updateSplitViewButton();
   updateViewerActionButtons();
+  updateResultActionButtons();
   loadGitStatus();
   setInterval(loadGitStatus, 30000); // refresh badge every 30s
 });
@@ -1033,6 +1034,7 @@ function toggleToc() {
 
 function renderAIResult(rawText) {
   state.aiResult = (rawText || '').trim();
+  updateResultActionButtons();
   if (state.splitViewEnabled) {
     renderSplitComparison();
     return;
@@ -1095,6 +1097,31 @@ function toggleSplitView() {
   }
 }
 
+function updateResultActionButtons() {
+  const copyBtn = document.getElementById('copy-result-btn');
+  if (!copyBtn) return;
+  copyBtn.style.display = state.aiResult ? '' : 'none';
+}
+
+async function copyAIResult() {
+  if (!state.aiResult) return toast('복사할 AI 결과가 없습니다.', 'error');
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(state.aiResult);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = state.aiResult;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    toast('AI 결과를 클립보드에 복사했습니다.', 'success');
+  } catch (e) {
+    toast(`복사 실패: ${e.message}`, 'error');
+  }
+}
+
 /* ── Engine Select ───────────────────────────────────────────────── */
 function selectEngine(engine) {
   state.engine = engine;
@@ -1126,6 +1153,7 @@ async function runAIStream() {
   const resultArea = document.getElementById('result-area');
   resultArea.innerHTML = '<div id="streaming-output" style="white-space:pre-wrap;font-family:monospace;font-size:12px;"></div>';
   state.aiResult = null;
+  updateResultActionButtons();
 
   const accumulated = [];
   state.abortController = new AbortController();
@@ -1195,15 +1223,27 @@ async function saveToIssue() {
   saveBtn.innerHTML = '<span class="spinner"></span>';
 
   try {
-    const res = await fetch('/api/ai/summarize', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        engine: state.engine,
-        file_path: state.currentFile.path,
-        prompt: prompt || undefined,
-      }),
-    });
+    let res;
+    if (state.aiResult && state.aiResult.trim()) {
+      res = await fetch('/api/ai/save-result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          file_path: state.currentFile.path,
+          ai_output: state.aiResult,
+        }),
+      });
+    } else {
+      res = await fetch('/api/ai/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          engine: state.engine,
+          file_path: state.currentFile.path,
+          prompt: prompt || undefined,
+        }),
+      });
+    }
 
     if (!res.ok) {
       const err = await res.json();
@@ -1267,6 +1307,7 @@ function downloadCurrentFile() {
 
 function resetAIResult() {
   state.aiResult = null;
+  updateResultActionButtons();
   if (state.splitViewEnabled) {
     renderSplitComparison();
     return;

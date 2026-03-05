@@ -137,6 +137,7 @@
           <div class="section-bar" onclick="toggleSection('result-section')" role="button" aria-expanded="true" tabindex="0">
             <span class="section-bar-icon">📋</span>
             <span class="section-bar-title">실행결과</span>
+            <button class="icon-btn" id="copy-result-btn" style="display:none" onclick="event.stopPropagation(); copyAIResult()" title="AI 결과 복사" aria-label="AI 결과 복사">⧉</button>
             <span class="section-chevron">▾</span>
           </div>
           <div id="result-area" class="section-content">

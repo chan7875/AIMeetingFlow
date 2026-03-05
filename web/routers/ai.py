@@ -591,6 +591,11 @@ class SummarizeBody(BaseModel):
     timeout_sec: int = 600
 
 
+class SaveResultBody(BaseModel):
+    file_path: str
+    ai_output: str
+
+
 class AutoWatchBody(BaseModel):
     enabled: bool
 
@@ -662,6 +667,31 @@ async def summarize_and_save(body: SummarizeBody):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("summarize_and_save failed: body=%s", body.model_dump())
+        raise HTTPException(status_code=500, detail=f"예상치 못한 오류: {exc}") from exc
+
+
+@router.post("/save-result")
+async def save_result(body: SaveResultBody):
+    vault = get_vault_path()
+    try:
+        source_abs = _safe_resolve_in_vault(vault, body.file_path)
+        if not source_abs.exists() or not source_abs.is_file():
+            raise FileNotFoundError("파일을 찾을 수 없습니다.")
+        ai_output = (body.ai_output or "").strip()
+        if not ai_output:
+            raise HTTPException(status_code=400, detail="저장할 AI 결과가 비어 있습니다.")
+        return _save_ai_output(vault, body.file_path, source_abs, ai_output)
+    except HTTPException:
+        raise
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except OSError as exc:
+        logger.exception("save_result failed (filesystem): file_path=%s", body.file_path)
+        raise HTTPException(status_code=500, detail=f"AI 결과 저장 중 오류: {exc}") from exc
+    except Exception as exc:
+        logger.exception("save_result failed: body=%s", body.model_dump())
         raise HTTPException(status_code=500, detail=f"예상치 못한 오류: {exc}") from exc
 
 
