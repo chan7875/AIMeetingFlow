@@ -1213,6 +1213,87 @@ function resetAIResult() {
   resultArea.innerHTML = '<div id="result-placeholder">실행 결과가 여기에 표시됩니다.</div>';
 }
 
+/* ── Vault Content Search ─────────────────────────────────────────── */
+function openContentSearchModal() {
+  showModal('content-search-modal');
+  const input = document.getElementById('content-search-input');
+  if (input) {
+    input.focus();
+    input.select();
+  }
+}
+
+function renderContentSearchResults(results) {
+  const container = document.getElementById('content-search-results');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!results || results.length === 0) {
+    container.innerHTML = '<div class="content-search-empty">검색 결과가 없습니다.</div>';
+    return;
+  }
+
+  results.forEach(item => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'content-search-item';
+
+    const title = document.createElement('div');
+    title.className = 'content-search-title';
+    title.textContent = item.name || item.path;
+
+    const path = document.createElement('div');
+    path.className = 'content-search-path';
+    path.textContent = item.path;
+
+    const snippet = document.createElement('div');
+    snippet.className = 'content-search-snippet';
+    snippet.textContent = item.snippet || '';
+
+    row.append(title, path, snippet);
+    row.onclick = async () => {
+      closeModal('content-search-modal');
+      await openFile(item.path, item.name);
+    };
+    container.appendChild(row);
+  });
+}
+
+async function runContentSearch() {
+  const input = document.getElementById('content-search-input');
+  const runBtn = document.getElementById('content-search-run-btn');
+  const query = (input?.value || '').trim();
+  if (!query) return toast('검색어를 입력해 주세요.', 'error');
+
+  if (runBtn) {
+    runBtn.disabled = true;
+    runBtn.textContent = '검색 중...';
+  }
+  const container = document.getElementById('content-search-results');
+  if (container) {
+    container.innerHTML = '<div class="content-search-empty">검색 중...</div>';
+  }
+
+  try {
+    const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&limit=80`);
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || '검색 실패');
+    }
+    const data = await res.json();
+    renderContentSearchResults(data.results || []);
+  } catch (e) {
+    if (container) {
+      container.innerHTML = `<div class="content-search-empty" style="color:var(--red);">오류: ${e.message}</div>`;
+    }
+  } finally {
+    if (runBtn) {
+      runBtn.disabled = false;
+      runBtn.textContent = '검색';
+    }
+  }
+}
+
 /* ── Upload ──────────────────────────────────────────────────────── */
 function openUploadModal() {
   state.uploadFiles = [];
@@ -1820,7 +1901,7 @@ document.addEventListener('keydown', e => {
       cancelViewerEdits();
       return;
     }
-    ['settings-modal', 'upload-modal', 'git-modal', 'git-push-modal'].forEach(id => {
+    ['settings-modal', 'upload-modal', 'git-modal', 'git-push-modal', 'content-search-modal'].forEach(id => {
       const el = document.getElementById(id);
       if (el && el.style.display !== 'none') closeModal(id);
     });
@@ -1853,5 +1934,10 @@ document.addEventListener('keydown', e => {
     if (!state.viewerEditing) return;
     e.preventDefault();
     saveViewerEdits();
+  }
+  // Ctrl+Shift+F to open vault content search
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
+    e.preventDefault();
+    openContentSearchModal();
   }
 });

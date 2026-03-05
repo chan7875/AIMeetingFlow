@@ -1,4 +1,5 @@
 import mimetypes
+import os
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
@@ -24,6 +25,7 @@ TREE_VISIBLE_EXTENSIONS = {
     ".svg",
     ".webp",
 }
+SEARCH_EXTENSIONS = {".md", ".txt"}
 
 
 def _safe_resolve(relative: str) -> Path:
@@ -56,6 +58,56 @@ def _build_tree(path: Path, vault: Path) -> dict:
             pass
         node["children"] = children
     return node
+
+
+def _build_search_snippet(content: str, query: str, radius: int = 70) -> str:
+    lowered = content.lower()
+    idx = lowered.find(query.lower())
+    if idx < 0:
+        return ""
+    start = max(0, idx - radius)
+    end = min(len(content), idx + len(query) + radius)
+    snippet = content[start:end].replace("\n", " ").strip()
+    if start > 0:
+        snippet = "..." + snippet
+    if end < len(content):
+        snippet = snippet + "..."
+    return snippet
+
+
+def _search_in_vault(vault: Path, query: str, limit: int) -> list[dict[str, str]]:
+    query_text = query.strip()
+    if not query_text:
+        return []
+    results: list[dict[str, str]] = []
+    for root, dirs, files in os.walk(vault):
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d != "__pycache__"]
+        root_path = Path(root)
+        for filename in files:
+            if filename.startswith("."):
+                continue
+            path = root_path / filename
+            if path.suffix.lower() not in SEARCH_EXTENSIONS:
+                continue
+            try:
+                rel = str(path.relative_to(vault))
+            except ValueError:
+                continue
+            try:
+                content = path.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                continue
+            lowered = content.lower()
+            if query_text.lower() not in lowered:
+                continue
+            results.append({
+                "path": rel,
+                "name": path.name,
+                "snippet": _build_search_snippet(content, query_text),
+            })
+            if len(results) >= limit:
+                return results
+    return results
 
 
 # ── Config ──────────────────────────────────────────────────────────────────
@@ -123,6 +175,21 @@ def get_tree():
     if not vault.exists():
         raise HTTPException(status_code=404, detail=f"볼트 경로를 찾을 수 없습니다: {vault}")
     return _build_tree(vault, vault)
+
+
+@router.get("/search")
+def search_vault(q: str = "", limit: int = 60):
+    query = q.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="q 파라미터가 필요합니다.")
+    if limit <= 0:
+        raise HTTPException(status_code=400, detail="limit은 1 이상이어야 합니다.")
+    limit = min(limit, 200)
+    vault = get_vault_path()
+    if not vault.exists() or not vault.is_dir():
+        raise HTTPException(status_code=404, detail=f"볼트 경로를 찾을 수 없습니다: {vault}")
+    matches = _search_in_vault(vault, query, limit)
+    return {"query": query, "count": len(matches), "results": matches}
 
 
 # ── File Read ─────────────────────────────────────────────────────────────────

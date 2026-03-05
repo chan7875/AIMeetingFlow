@@ -25,6 +25,7 @@
   <div class="vault-path" id="vault-path-display" title="클릭하여 경로 변경">로딩 중...</div>
   <button class="header-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="테마 전환" aria-label="테마 전환">🌓 <span class="btn-text">테마</span></button>
   <button class="header-btn" onclick="openSettingsModal()" title="설정">⚙ <span class="btn-text">설정</span></button>
+  <button class="header-btn" onclick="openContentSearchModal()" title="내용 검색">🔎 <span class="btn-text">검색</span></button>
   <button class="header-btn" onclick="openUploadModal()" title="파일 업로드">⬆ <span class="btn-text">업로드</span></button>
   <button class="header-btn" id="auto-watch-btn" onclick="toggleAutoWatch()" title="새 파일 자동 Codex 분석">🛰 <span class="btn-text">자동 분석 OFF</span></button>
   <button class="header-btn success" onclick="runGit('pull')" title="Git Pull">⬇ <span class="btn-text">Pull</span></button>
@@ -204,6 +205,23 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('upload-modal')">취소</button>
       <button class="btn btn-primary" id="upload-btn" onclick="doUpload()" disabled>업로드</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Vault Content Search ───────────────────────────────── -->
+<div class="modal-overlay" id="content-search-modal" style="display:none;" onclick="closeModal('content-search-modal')">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="볼트 내용 검색" onclick="event.stopPropagation()">
+    <h3>🔎 볼트 내용 검색</h3>
+    <div class="content-search-bar">
+      <input type="text" id="content-search-input" placeholder="검색어를 입력하세요" onkeydown="if(event.key==='Enter'){runContentSearch();}">
+      <button class="btn btn-primary" onclick="runContentSearch()" id="content-search-run-btn">검색</button>
+    </div>
+    <div id="content-search-results" class="content-search-results">
+      <div class="content-search-empty">검색어를 입력하고 검색을 실행해 주세요.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('content-search-modal')">닫기</button>
     </div>
   </div>
 </div>
