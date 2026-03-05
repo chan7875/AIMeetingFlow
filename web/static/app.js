@@ -16,6 +16,7 @@ const state = {
   promptTemplates: {},
   defaultPrompt: '',
   gitPushFiles: [],
+  uploadPickerExpanded: new Set(['']),
 };
 
 const PROMPT_TEMPLATE_STORAGE_KEY = 'prompt_templates_v1';
@@ -1078,6 +1079,7 @@ function resetAIResult() {
 function openUploadModal() {
   state.uploadFiles = [];
   state.uploadDestPath = '';
+  state.uploadPickerExpanded = new Set(['']);
   document.getElementById('selected-files-info').textContent = '';
   document.getElementById('selected-dest-path').textContent = '/';
   document.getElementById('upload-btn').disabled = true;
@@ -1109,39 +1111,69 @@ function updateFileInfo() {
   document.getElementById('upload-btn').disabled = false;
 }
 
-function buildFolderPicker(container, treeNode, depth = 0) {
+function buildFolderPicker(container, treeNode) {
   container.innerHTML = '';
   if (!treeNode) return;
-  // Root
-  const rootItem = document.createElement('div');
-  rootItem.className = 'folder-item' + (state.uploadDestPath === '' ? ' selected' : '');
-  rootItem.innerHTML = `<span>📁</span> / (루트)`;
-  rootItem.style.paddingLeft = '8px';
-  rootItem.onclick = () => selectUploadDest('', rootItem, container);
-  container.appendChild(rootItem);
-  if (treeNode.children) {
-    appendFolderItems(container, treeNode.children, 1);
+  const rootNode = { name: '/', path: '', type: 'directory', children: treeNode.children || [] };
+  const tree = renderUploadFolderNode(rootNode, 0);
+  container.appendChild(tree);
+}
+
+function renderUploadFolderNode(node, depth) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'folder-tree-node';
+
+  const row = document.createElement('div');
+  row.className = 'folder-item folder-tree-item' + (state.uploadDestPath === node.path ? ' selected' : '');
+  row.style.paddingLeft = (8 + depth * 14) + 'px';
+
+  const childDirs = (node.children || []).filter(child => child.type === 'directory');
+  const hasChildren = childDirs.length > 0;
+  const isExpanded = state.uploadPickerExpanded.has(node.path);
+
+  const arrow = document.createElement('span');
+  arrow.className = 'folder-tree-arrow';
+  arrow.textContent = hasChildren ? (isExpanded ? '▾' : '▸') : ' ';
+  arrow.onclick = e => {
+    e.stopPropagation();
+    if (!hasChildren) return;
+    if (isExpanded) {
+      state.uploadPickerExpanded.delete(node.path);
+    } else {
+      state.uploadPickerExpanded.add(node.path);
+    }
+    const container = document.getElementById('upload-folder-picker');
+    buildFolderPicker(container, state.treeData);
+  };
+
+  const icon = document.createElement('span');
+  icon.textContent = '📁';
+
+  const label = document.createElement('span');
+  label.className = 'folder-tree-label';
+  label.textContent = node.path === '' ? '/ (루트)' : node.name;
+
+  row.append(arrow, icon, label);
+  row.onclick = () => selectUploadDest(node.path);
+  wrapper.appendChild(row);
+
+  if (hasChildren && isExpanded) {
+    const childrenWrap = document.createElement('div');
+    childrenWrap.className = 'folder-tree-children';
+    childDirs.forEach(child => {
+      childrenWrap.appendChild(renderUploadFolderNode(child, depth + 1));
+    });
+    wrapper.appendChild(childrenWrap);
   }
+
+  return wrapper;
 }
 
-function appendFolderItems(container, nodes, depth) {
-  nodes.forEach(node => {
-    if (node.type !== 'directory') return;
-    const item = document.createElement('div');
-    item.className = 'folder-item' + (state.uploadDestPath === node.path ? ' selected' : '');
-    item.style.paddingLeft = (8 + depth * 14) + 'px';
-    item.innerHTML = `<span>📁</span> ${node.name}`;
-    item.onclick = () => selectUploadDest(node.path, item, container);
-    container.appendChild(item);
-    if (node.children) appendFolderItems(container, node.children, depth + 1);
-  });
-}
-
-function selectUploadDest(path, el, container) {
+function selectUploadDest(path) {
   state.uploadDestPath = path;
-  container.querySelectorAll('.folder-item').forEach(i => i.classList.remove('selected'));
-  el.classList.add('selected');
   document.getElementById('selected-dest-path').textContent = '/' + (path || '');
+  const container = document.getElementById('upload-folder-picker');
+  buildFolderPicker(container, state.treeData);
 }
 
 async function doUpload() {

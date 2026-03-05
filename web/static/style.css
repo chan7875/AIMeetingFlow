@@ -785,6 +785,29 @@ main {
 .folder-item:hover { background: var(--surface); }
 .folder-item.selected { background: var(--accent); color: #1e1e2e; }
 
+.folder-tree-item {
+  user-select: none;
+}
+
+.folder-tree-arrow {
+  width: 12px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.folder-tree-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-tree-children {
+  border-left: 1px dashed var(--border);
+  margin-left: 14px;
+}
+
 /* Git push files list */
 .git-files-list {
   background: var(--bg);
