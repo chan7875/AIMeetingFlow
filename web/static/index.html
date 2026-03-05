@@ -107,6 +107,13 @@
             <span class="section-chevron">▾</span>
           </div>
           <div id="prompt-area" class="section-content">
+            <div class="prompt-template-bar">
+              <select id="prompt-template-select" onchange="applyPromptTemplate(this.value)" aria-label="프롬프트 템플릿 선택">
+                <option value="">템플릿 선택</option>
+              </select>
+              <button class="btn btn-secondary" type="button" onclick="savePromptTemplate()">저장</button>
+              <button class="btn btn-secondary" type="button" onclick="deletePromptTemplate()">삭제</button>
+            </div>
             <textarea id="prompt-textarea" placeholder="AI에게 전달할 프롬프트를 입력하세요...">다음 마크다운 파일의 내용을 핵심 위주로 요약해 주세요.
 현재 선택된 md 파일 상단에 아래의 내용을 추가를 해 줘.
  - account 는 md 파일이 포함된 상단의 폴더 이름이야.

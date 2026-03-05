@@ -13,7 +13,12 @@ const state = {
   autoWatchPollTimer: null,
   autoWatchLastSeenCount: 0,
   abortController: null, // for AI streaming cancellation
+  promptTemplates: {},
+  defaultPrompt: '',
 };
+
+const PROMPT_TEMPLATE_STORAGE_KEY = 'prompt_templates_v1';
+const PROMPT_TEMPLATE_LAST_KEY = 'prompt_template_last_v1';
 
 /* ── Marked.js setup ─────────────────────────────────────────────── */
 marked.setOptions({
@@ -78,6 +83,7 @@ window.addEventListener('DOMContentLoaded', () => {
   startAutoWatchPolling();
   setupResize();
   initTheme();
+  initPromptTemplates();
   updateViewerActionButtons();
   loadGitStatus();
   setInterval(loadGitStatus, 30000); // refresh badge every 30s
@@ -118,6 +124,118 @@ function applyTheme(theme) {
   if (btn) {
     btn.innerHTML = `${theme === 'light' ? '🌙' : '☀️'} <span class="btn-text">테마</span>`;
   }
+}
+
+function loadPromptTemplatesFromStorage() {
+  try {
+    const raw = localStorage.getItem(PROMPT_TEMPLATE_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    const result = {};
+    Object.entries(parsed).forEach(([name, value]) => {
+      if (typeof name !== 'string' || !name.trim()) return;
+      if (typeof value !== 'string') return;
+      result[name.trim()] = value;
+    });
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+function savePromptTemplatesToStorage() {
+  const output = {};
+  Object.entries(state.promptTemplates || {}).forEach(([name, value]) => {
+    if (!name || name === '기본') return;
+    output[name] = value;
+  });
+  localStorage.setItem(PROMPT_TEMPLATE_STORAGE_KEY, JSON.stringify(output));
+}
+
+function renderPromptTemplateOptions(selectedName = '') {
+  const select = document.getElementById('prompt-template-select');
+  if (!select) return;
+
+  select.innerHTML = '';
+  const names = Object.keys(state.promptTemplates || {});
+  names.sort((a, b) => {
+    if (a === '기본') return -1;
+    if (b === '기본') return 1;
+    return a.localeCompare(b, 'ko');
+  });
+
+  names.forEach(name => {
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = name;
+    if (name === selectedName) option.selected = true;
+    select.appendChild(option);
+  });
+}
+
+function initPromptTemplates() {
+  const textarea = document.getElementById('prompt-textarea');
+  if (!textarea) return;
+
+  state.defaultPrompt = textarea.value || '';
+  const storedTemplates = loadPromptTemplatesFromStorage();
+  state.promptTemplates = {
+    기본: state.defaultPrompt,
+    ...storedTemplates,
+  };
+
+  const last = localStorage.getItem(PROMPT_TEMPLATE_LAST_KEY) || '기본';
+  const selected = state.promptTemplates[last] ? last : '기본';
+  renderPromptTemplateOptions(selected);
+  applyPromptTemplate(selected, { silent: true });
+}
+
+function applyPromptTemplate(name, options = {}) {
+  const silent = options.silent === true;
+  if (!name) return;
+  const textarea = document.getElementById('prompt-textarea');
+  if (!textarea) return;
+  if (!state.promptTemplates[name]) return;
+
+  textarea.value = state.promptTemplates[name];
+  localStorage.setItem(PROMPT_TEMPLATE_LAST_KEY, name);
+  if (!silent) toast(`프롬프트 템플릿 적용: ${name}`, 'success');
+}
+
+function savePromptTemplate() {
+  const textarea = document.getElementById('prompt-textarea');
+  if (!textarea) return;
+  const content = textarea.value.trim();
+  if (!content) return toast('저장할 프롬프트 내용을 입력해 주세요.', 'error');
+
+  const rawName = prompt('저장할 템플릿 이름을 입력하세요:');
+  const name = String(rawName || '').trim();
+  if (!name) return;
+  if (name === '기본') return toast('"기본" 이름은 사용할 수 없습니다.', 'error');
+
+  state.promptTemplates[name] = textarea.value;
+  savePromptTemplatesToStorage();
+  renderPromptTemplateOptions(name);
+  localStorage.setItem(PROMPT_TEMPLATE_LAST_KEY, name);
+  toast(`템플릿 저장 완료: ${name}`, 'success');
+}
+
+function deletePromptTemplate() {
+  const select = document.getElementById('prompt-template-select');
+  if (!select) return;
+  const selected = select.value;
+  if (!selected) return;
+  if (selected === '기본') return toast('기본 템플릿은 삭제할 수 없습니다.', 'error');
+
+  const ok = confirm(`"${selected}" 템플릿을 삭제할까요?`);
+  if (!ok) return;
+
+  delete state.promptTemplates[selected];
+  savePromptTemplatesToStorage();
+  renderPromptTemplateOptions('기본');
+  applyPromptTemplate('기본', { silent: true });
+  toast(`템플릿 삭제 완료: ${selected}`, 'success');
 }
 
 /* ── Config ───────────────────────────────────────────────────────── */

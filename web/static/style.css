@@ -604,6 +604,29 @@ main {
   overflow: hidden;
 }
 
+.prompt-template-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+
+#prompt-template-select {
+  flex: 1;
+  min-width: 120px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  padding: 6px 8px;
+  outline: none;
+}
+
+#prompt-template-select:focus { border-color: var(--accent); }
+
 #prompt-textarea {
   flex: 1;
   resize: none;
@@ -1054,6 +1077,7 @@ main {
 
   /* AI 패널 헤더 */
   .ai-panel-header { gap: 6px; padding: 6px 10px; flex-wrap: wrap; }
+  .prompt-template-bar { flex-wrap: wrap; }
 
   /* 트리 아이템 터치 타겟 확대 */
   .tree-item {
