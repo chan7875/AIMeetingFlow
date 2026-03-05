@@ -1,9 +1,8 @@
 import mimetypes
 from pathlib import Path
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from web.config import get_vault_path, set_vault_path, get_issue_folder
@@ -12,6 +11,7 @@ router = APIRouter(prefix="/api")
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50MB
 ALLOWED_EXTENSIONS = {".md", ".txt", ".png", ".jpg", ".jpeg", ".gif", ".pdf", ".svg", ".webp"}
+EDITABLE_TEXT_EXTENSIONS = {".md", ".txt"}
 
 
 def _safe_resolve(relative: str) -> Path:
@@ -61,6 +61,11 @@ class DeleteBody(BaseModel):
     path: str
 
 
+class SaveFileBody(BaseModel):
+    path: str
+    content: str
+
+
 @router.get("/config")
 def get_config():
     vault = get_vault_path()
@@ -101,6 +106,45 @@ def get_file(path: str = ""):
         raise HTTPException(status_code=400, detail="파일이 아닙니다.")
     content = target.read_text(encoding="utf-8", errors="replace")
     return {"path": path, "name": target.name, "content": content}
+
+
+@router.post("/file")
+def save_file(body: SaveFileBody):
+    if not body.path:
+        raise HTTPException(status_code=400, detail="path 파라미터가 필요합니다.")
+    target = _safe_resolve(body.path)
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다.")
+    if not target.is_file():
+        raise HTTPException(status_code=400, detail="파일이 아닙니다.")
+    if target.suffix.lower() not in EDITABLE_TEXT_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="수정 가능한 파일 형식이 아닙니다. (.md, .txt)")
+    try:
+        target.write_text(body.content, encoding="utf-8")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"파일 저장 실패: {e}") from e
+    return {"path": body.path, "name": target.name, "saved": True}
+
+
+# ── View (inline) ─────────────────────────────────────────────────────────────
+
+@router.get("/view")
+def view_file(path: str = ""):
+    """Serve a file with Content-Disposition: inline so the browser/OS handles it."""
+    if not path:
+        raise HTTPException(status_code=400, detail="path 파라미터가 필요합니다.")
+    target = _safe_resolve(path)
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다.")
+    if not target.is_file():
+        raise HTTPException(status_code=400, detail="파일이 아닙니다.")
+    media_type = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
+    return FileResponse(
+        path=target,
+        filename=target.name,
+        media_type=media_type,
+        headers={"Content-Disposition": f'inline; filename="{target.name}"'},
+    )
 
 
 # ── Download ──────────────────────────────────────────────────────────────────

@@ -60,6 +60,9 @@
         <span class="section-bar-icon">📄</span>
         <span id="viewer-filename" class="section-bar-title">마크다운 뷰어</span>
         <span id="viewer-path" class="section-bar-sub"></span>
+        <button class="icon-btn" id="viewer-edit-btn" style="display:none" onclick="event.stopPropagation(); toggleViewerEditMode()" title="편집 모드 전환" aria-label="편집 모드 전환">✏</button>
+        <button class="icon-btn" id="viewer-save-btn" style="display:none" onclick="event.stopPropagation(); saveViewerEdits()" title="파일 저장" aria-label="파일 저장">💾</button>
+        <button class="icon-btn" id="viewer-cancel-btn" style="display:none" onclick="event.stopPropagation(); cancelViewerEdits()" title="편집 취소" aria-label="편집 취소">↩</button>
         <button class="icon-btn" id="summarize-btn" style="display:none" onclick="event.stopPropagation(); summarizeCurrentFile()" title="AI 요약 저장" aria-label="AI 요약 저장">🤖</button>
         <span class="section-chevron">▾</span>
       </div>
@@ -208,6 +211,25 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('git-push-modal')">취소</button>
       <button class="btn btn-primary" onclick="runGitPush()">Push 실행</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: PPTX 파일 옵션 ──────────────────────────────────────── -->
+<div class="modal-overlay" id="pptx-modal" style="display:none;" onclick="closeModal('pptx-modal')">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:400px;">
+    <h3>📊 프레젠테이션 파일</h3>
+    <p id="pptx-modal-filename" style="font-size:13px;color:var(--text-dim);word-break:break-all;"></p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px;">
+      <button class="btn btn-primary" onclick="openPptxNewTab()" style="justify-content:center;padding:10px;">
+        🖥 새 탭에서 열기
+      </button>
+      <button class="btn btn-secondary" onclick="downloadPptxFile()" style="justify-content:center;padding:10px;">
+        ⬇ 다운로드
+      </button>
+    </div>
+    <div class="modal-actions" style="margin-top:4px;">
+      <button class="btn btn-secondary" onclick="closeModal('pptx-modal')">닫기</button>
     </div>
   </div>
 </div>

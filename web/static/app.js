@@ -2,6 +2,7 @@
 const state = {
   engine: 'claude',
   currentFile: null,   // { path, name, content }
+  viewerEditing: false,
   aiResult: null,      // last AI output string
   uploadFiles: [],
   uploadDestPath: '',
@@ -69,6 +70,7 @@ window.addEventListener('DOMContentLoaded', () => {
   startAutoWatchPolling();
   setupResize();
   initTheme();
+  updateViewerActionButtons();
   loadGitStatus();
   setInterval(loadGitStatus, 30000); // refresh badge every 30s
 });
@@ -257,6 +259,178 @@ function renderTreeChildren(container, children) {
   });
 }
 
+function hasExtension(name, extension) {
+  if (!name || !extension) return false;
+  return String(name).toLowerCase().endsWith(String(extension).toLowerCase());
+}
+
+function isEditableTextFile(name) {
+  return hasExtension(name, '.md') || hasExtension(name, '.txt');
+}
+
+function getViewerEditorValue() {
+  const editor = document.getElementById('viewer-editor');
+  return editor ? editor.value : '';
+}
+
+function hasUnsavedViewerChanges() {
+  if (!state.viewerEditing || !state.currentFile) return false;
+  return getViewerEditorValue() !== (state.currentFile.content || '');
+}
+
+function updateViewerActionButtons() {
+  const hasCurrent = !!state.currentFile;
+  const editable = hasCurrent && isEditableTextFile(state.currentFile.name);
+  const editBtn = document.getElementById('viewer-edit-btn');
+  const saveBtn = document.getElementById('viewer-save-btn');
+  const cancelBtn = document.getElementById('viewer-cancel-btn');
+  const summarizeBtn = document.getElementById('summarize-btn');
+  const downloadBtn = document.getElementById('download-sidebar-btn');
+
+  if (summarizeBtn) summarizeBtn.style.display = hasCurrent ? '' : 'none';
+  if (downloadBtn) downloadBtn.style.display = hasCurrent ? '' : 'none';
+
+  if (!editable) {
+    if (editBtn) editBtn.style.display = 'none';
+    if (saveBtn) saveBtn.style.display = 'none';
+    if (cancelBtn) cancelBtn.style.display = 'none';
+    return;
+  }
+
+  if (editBtn) {
+    editBtn.style.display = '';
+    editBtn.classList.toggle('active', state.viewerEditing);
+  }
+  if (saveBtn) {
+    saveBtn.style.display = state.viewerEditing ? '' : 'none';
+    saveBtn.disabled = false;
+    saveBtn.textContent = '💾';
+  }
+  if (cancelBtn) cancelBtn.style.display = state.viewerEditing ? '' : 'none';
+}
+
+function renderViewerPlaceholder() {
+  const content = document.getElementById('viewer-content');
+  const tocContainer = document.getElementById('toc-container');
+  content.classList.remove('viewer-editing');
+  content.innerHTML = '<div id="viewer-placeholder"><div class="placeholder-icon">📄</div><div>왼쪽 트리에서 마크다운 파일을 선택하세요</div></div>';
+  if (tocContainer) tocContainer.style.display = 'none';
+}
+
+function resetViewerState() {
+  state.currentFile = null;
+  state.viewerEditing = false;
+  document.getElementById('viewer-filename').textContent = '마크다운 뷰어';
+  document.getElementById('viewer-path').textContent = '';
+  const runBtn = document.getElementById('run-btn');
+  const issueSaveBtn = document.getElementById('save-btn');
+  if (runBtn) runBtn.disabled = true;
+  if (issueSaveBtn) issueSaveBtn.disabled = true;
+  renderViewerPlaceholder();
+  updateViewerActionButtons();
+}
+
+async function renderViewerMarkdown(contentText) {
+  const content = document.getElementById('viewer-content');
+  const placeholder = document.getElementById('viewer-placeholder');
+  if (placeholder) placeholder.remove();
+  content.classList.remove('viewer-editing');
+  content.innerHTML = marked.parse(contentText || '');
+
+  content.querySelectorAll('pre code').forEach(block => {
+    hljs.highlightElement(block);
+  });
+
+  await renderMermaidBlocks(content);
+  generateTOC(content);
+}
+
+function renderViewerEditor(contentText) {
+  const content = document.getElementById('viewer-content');
+  const tocContainer = document.getElementById('toc-container');
+  const placeholder = document.getElementById('viewer-placeholder');
+  if (placeholder) placeholder.remove();
+  if (tocContainer) tocContainer.style.display = 'none';
+
+  content.classList.add('viewer-editing');
+  content.innerHTML = '';
+
+  const editor = document.createElement('textarea');
+  editor.id = 'viewer-editor';
+  editor.className = 'viewer-editor';
+  editor.value = contentText || '';
+  content.appendChild(editor);
+  editor.focus();
+}
+
+async function toggleViewerEditMode() {
+  if (!state.currentFile) return toast('먼저 파일을 선택해 주세요.', 'error');
+  if (!isEditableTextFile(state.currentFile.name)) return toast('이 파일은 편집할 수 없습니다.', 'error');
+
+  if (state.viewerEditing) {
+    await cancelViewerEdits();
+    return;
+  }
+
+  state.viewerEditing = true;
+  updateViewerActionButtons();
+  renderViewerEditor(state.currentFile.content || '');
+}
+
+async function cancelViewerEdits(force = false) {
+  if (!state.viewerEditing) return;
+  if (!force && hasUnsavedViewerChanges()) {
+    const shouldDiscard = confirm('저장되지 않은 변경사항이 있습니다. 편집을 취소할까요?');
+    if (!shouldDiscard) return;
+  }
+  state.viewerEditing = false;
+  updateViewerActionButtons();
+  await renderViewerMarkdown(state.currentFile?.content || '');
+}
+
+async function saveViewerEdits() {
+  if (!state.currentFile || !state.viewerEditing) return;
+  const nextContent = getViewerEditorValue();
+  const saveBtn = document.getElementById('viewer-save-btn');
+  if (!saveBtn) return;
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = '...';
+
+  try {
+    const res = await fetch('/api/file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        path: state.currentFile.path,
+        content: nextContent,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || '파일 저장 실패');
+    }
+
+    state.currentFile.content = nextContent;
+    state.viewerEditing = false;
+    updateViewerActionButtons();
+    await renderViewerMarkdown(nextContent);
+    toast(`저장 완료: ${state.currentFile.name}`, 'success');
+    loadTree();
+  } catch (e) {
+    toast(`파일 저장 실패: ${e.message}`, 'error');
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = '💾';
+  }
+}
+
+window.addEventListener('beforeunload', e => {
+  if (!hasUnsavedViewerChanges()) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
+
 function renderTreeNode(node) {
   const wrapper = document.createElement('div');
   wrapper.className = 'tree-node';
@@ -307,8 +481,8 @@ function renderTreeNode(node) {
   } else {
     const icon = document.createElement('span');
     icon.className = 'tree-icon';
-    const isPptx = node.name.endsWith('.pptx');
-    icon.textContent = isPptx ? '📊' : node.name.endsWith('.txt') ? '📝' : '📄';
+    const isPptx = hasExtension(node.name, '.pptx');
+    icon.textContent = isPptx ? '📊' : hasExtension(node.name, '.txt') ? '📝' : '📄';
     const label = document.createElement('span');
     label.textContent = node.name;
     label.style.flex = '1';
@@ -330,7 +504,13 @@ function renderTreeNode(node) {
       document.querySelectorAll('.tree-item.active').forEach(el => el.classList.remove('active'));
       item.classList.add('active');
       if (isPptx) {
-        downloadFile(node.path, node.name);
+        if (isMobile()) {
+          // Mobile: trigger native browser download/open dialog
+          downloadFile(node.path, node.name);
+        } else {
+          // Desktop: show PPTX options modal
+          openPptxModal(node.path, node.name);
+        }
       } else {
         openFile(node.path, node.name);
       }
@@ -346,39 +526,47 @@ function renderTreeNode(node) {
   return wrapper;
 }
 
+// Binary extensions that must not be rendered as text
+const BINARY_EXTENSIONS = new Set(['.pptx', '.ppt', '.xlsx', '.xls', '.docx', '.doc', '.pdf', '.zip', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']);
+
 /* ── File Viewer ─────────────────────────────────────────────────── */
 async function openFile(path, name) {
+  // Guard: binary files must never reach the markdown renderer
+  const ext = '.' + (path || '').split('.').pop().toLowerCase();
+  if (BINARY_EXTENSIONS.has(ext)) {
+    const fileName = name || path.split('/').pop();
+    if ((ext === '.pptx' || ext === '.ppt') && !isMobile()) {
+      openPptxModal(path, fileName);
+    } else {
+      downloadFile(path, fileName);
+    }
+    return;
+  }
   try {
+    if (
+      state.viewerEditing &&
+      state.currentFile &&
+      hasUnsavedViewerChanges()
+    ) {
+      const shouldMove = confirm('저장되지 않은 변경사항이 있습니다. 저장하지 않고 다른 파일을 열까요?');
+      if (!shouldMove) return;
+    }
+
     const res = await fetch(`/api/file?path=${encodeURIComponent(path)}`);
     if (!res.ok) throw new Error((await res.json()).detail);
     const data = await res.json();
     state.currentFile = data;
+    state.viewerEditing = false;
 
     // Update section-bar
     document.getElementById('viewer-filename').textContent = data.name;
     document.getElementById('viewer-path').textContent = data.path;
-    document.getElementById('summarize-btn').style.display = '';
-    document.getElementById('download-sidebar-btn').style.display = '';
+    updateViewerActionButtons();
 
     // Expand viewer if collapsed
     expandSection('viewer');
 
-    // Render markdown
-    const content = document.getElementById('viewer-content');
-    const placeholder = document.getElementById('viewer-placeholder');
-    if (placeholder) placeholder.remove();
-    content.innerHTML = marked.parse(data.content);
-
-    // Apply hljs to code blocks
-    content.querySelectorAll('pre code').forEach(block => {
-      hljs.highlightElement(block);
-    });
-
-    // Render Mermaid diagrams
-    await renderMermaidBlocks(content);
-
-    // Generate TOC from headings
-    generateTOC(content);
+    await renderViewerMarkdown(data.content);
 
     // Scroll to top
     document.getElementById('viewer-scroll').scrollTop = 0;
@@ -445,6 +633,7 @@ async function runAI() {
   if (!state.currentFile) return toast('먼저 파일을 선택해 주세요.', 'error');
   const prompt = document.getElementById('prompt-textarea').value.trim();
   if (!prompt) return toast('프롬프트를 입력해 주세요.', 'error');
+  const fileContent = state.viewerEditing ? getViewerEditorValue() : state.currentFile.content;
 
   const runBtn = document.getElementById('run-btn');
   runBtn.disabled = true;
@@ -461,7 +650,7 @@ async function runAI() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         engine: state.engine,
-        content: state.currentFile.content,
+        content: fileContent,
         prompt,
         file_path: state.currentFile.path,
       }),
@@ -514,6 +703,7 @@ async function runAIStream() {
   if (!state.currentFile) return toast('먼저 파일을 선택해 주세요.', 'error');
   const prompt = document.getElementById('prompt-textarea').value.trim();
   if (!prompt) return toast('프롬프트를 입력해 주세요.', 'error');
+  const fileContent = state.viewerEditing ? getViewerEditorValue() : state.currentFile.content;
 
   const runBtn = document.getElementById('run-btn');
   const cancelBtn = document.getElementById('cancel-btn');
@@ -537,7 +727,7 @@ async function runAIStream() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         engine: state.engine,
-        content: state.currentFile.content,
+        content: fileContent,
         prompt,
         file_path: state.currentFile.path,
       }),
@@ -588,6 +778,9 @@ window.runAI = runAIStream;
 /* ── Save to Issue ───────────────────────────────────────────────── */
 async function saveToIssue() {
   if (!state.currentFile) return toast('파일을 먼저 선택해 주세요.', 'error');
+  if (state.viewerEditing && hasUnsavedViewerChanges()) {
+    return toast('편집 중인 변경사항을 먼저 저장해 주세요.', 'error');
+  }
   const prompt = document.getElementById('prompt-textarea').value.trim();
 
   const saveBtn = document.getElementById('save-btn');
@@ -629,6 +822,27 @@ async function summarizeCurrentFile() {
 }
 
 /* ── Download ────────────────────────────────────────────────────── */
+/* ── PPTX Modal (desktop) ────────────────────────────────────────── */
+function openPptxModal(path, name) {
+  state._pptxPath = path;
+  state._pptxName = name;
+  const el = document.getElementById('pptx-modal-filename');
+  if (el) el.textContent = name;
+  showModal('pptx-modal');
+}
+
+function openPptxNewTab() {
+  if (!state._pptxPath) return;
+  window.open(`/api/view?path=${encodeURIComponent(state._pptxPath)}`, '_blank');
+  closeModal('pptx-modal');
+}
+
+function downloadPptxFile() {
+  if (!state._pptxPath) return;
+  downloadFile(state._pptxPath, state._pptxName);
+  closeModal('pptx-modal');
+}
+
 function downloadFile(path, name) {
   const url = `/api/download?path=${encodeURIComponent(path)}`;
   const a = document.createElement('a');
@@ -1043,8 +1257,7 @@ async function contextMenuAction(action) {
       }
       toast(`삭제 완료: ${name}`, 'success');
       if (state.currentFile && state.currentFile.path === path) {
-        state.currentFile = null;
-        document.getElementById('viewer-content').innerHTML = '<div id="viewer-placeholder"><div class="placeholder-icon">📄</div><div>왼쪽 트리에서 마크다운 파일을 선택하세요</div></div>';
+        resetViewerState();
       }
       loadTree();
     } catch (e) {
@@ -1147,6 +1360,10 @@ function clearSearch() {
 /* ── Keyboard shortcuts ──────────────────────────────────────────── */
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
+    if (state.viewerEditing) {
+      cancelViewerEdits();
+      return;
+    }
     ['settings-modal', 'upload-modal', 'git-modal', 'git-push-modal'].forEach(id => {
       const el = document.getElementById(id);
       if (el && el.style.display !== 'none') closeModal(id);
@@ -1174,5 +1391,11 @@ document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     const runBtn = document.getElementById('run-btn');
     if (!runBtn.disabled) runAI();
+  }
+  // Ctrl+S / Cmd+S to save viewer edits
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+    if (!state.viewerEditing) return;
+    e.preventDefault();
+    saveViewerEdits();
   }
 });
