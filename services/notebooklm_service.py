@@ -44,13 +44,13 @@ _slide_pipeline_lock = asyncio.Lock()
 
 
 async def _refresh_notebook(account: str) -> str:
-    """기존 매핑을 초기화하고 새 노트북을 생성한다."""
+    """기존 매핑을 초기화하고 새 노트북을 강제 생성한다."""
     async with _notebook_map_lock:
         mapping = _load_notebook_map()
         if account in mapping:
             mapping.pop(account, None)
             _save_notebook_map(mapping)
-    return await ensure_notebook(account)
+    return await ensure_notebook(account, force_create=True)
 
 
 def _is_retryable_slide_create_error(text: str) -> bool:
@@ -243,29 +243,83 @@ def _save_notebook_map(mapping: dict[str, str]) -> None:
     )
 
 
-async def ensure_notebook(account: str) -> str:
-    """account에 대응하는 notebook_id를 반환한다. 없으면 새로 생성한다."""
+async def _find_notebook_by_account(account: str) -> str:
+    """NotebookLM 서버 목록에서 account 이름과 일치하는 노트북 ID를 조회한다."""
+    try:
+        output = await _run_nlm(["notebook", "list", "--json"], timeout_sec=60)
+        items = json.loads(output)
+        if not isinstance(items, list):
+            return ""
+    except Exception as exc:
+        logger.warning("notebook list 조회 실패 (무시): %s", exc)
+        return ""
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or item.get("name") or "").strip()
+        if title.lower() == account.strip().lower():
+            notebook_id = str(item.get("id") or "").strip()
+            if notebook_id:
+                logger.info("서버 목록에서 기존 노트북 발견: account=%s id=%s", account, notebook_id)
+                return notebook_id
+    return ""
+
+
+async def ensure_notebook(account: str, force_create: bool = False) -> str:
+    """account에 대응하는 notebook_id를 반환한다.
+
+    탐색 순서:
+      1. 로컬 캐시(nlm_notebooks.json) 확인
+      2. NLM 서버 notebook list 조회 — account 이름과 동일한 노트북 재사용
+      3. 위 둘 다 없으면 신규 생성
+
+    force_create=True 이면 1·2 단계를 건너뛰고 항상 새 노트북을 생성한다.
+    (_refresh_notebook 에서 고장난 노트북을 교체할 때 사용)
+    """
+    if not force_create:
+        # 1. 로컬 캐시 확인
+        async with _notebook_map_lock:
+            mapping = _load_notebook_map()
+            existing_id = mapping.get(account)
+            if existing_id:
+                logger.info("notebook 재사용 (로컬 캐시): account=%s id=%s", account, existing_id)
+                return existing_id
+
+        # 2. NLM 서버 목록 조회 (락 없이 I/O 수행)
+        found_id = await _find_notebook_by_account(account)
+        if found_id:
+            async with _notebook_map_lock:
+                mapping = _load_notebook_map()
+                # race condition 방지: 다른 태스크가 먼저 등록했을 수 있음
+                if not mapping.get(account):
+                    mapping[account] = found_id
+                    _save_notebook_map(mapping)
+            logger.info("notebook 재사용 (서버 조회): account=%s id=%s", account, found_id)
+            return found_id
+
+    # 3. 신규 생성
     async with _notebook_map_lock:
         mapping = _load_notebook_map()
-        existing_id = mapping.get(account)
-        if existing_id:
-            logger.info("notebook 재사용: account=%s id=%s", account, existing_id)
-            return existing_id
+        if not force_create:
+            # 락 진입 직전 다른 태스크가 이미 생성했을 경우 재사용
+            existing_id = mapping.get(account)
+            if existing_id:
+                logger.info("notebook 재사용 (race 재확인): account=%s id=%s", account, existing_id)
+                return existing_id
 
         try:
             output = await _run_nlm(["notebook", "create", account])
         except Exception as exc:
             raise _set_slide_stage(exc, "notebook 생성") from exc
 
-        # nlm notebook create 출력에서 notebook ID를 추출한다.
-        # 일반적인 출력 형태: "Created notebook: <id>" 또는 ID만 출력
         notebook_id = _extract_notebook_id(output)
         if not notebook_id:
             raise RuntimeError(f"notebook ID를 추출할 수 없습니다: {output}")
 
         mapping[account] = notebook_id
         _save_notebook_map(mapping)
-        logger.info("notebook 생성: account=%s id=%s", account, notebook_id)
+        logger.info("notebook 신규 생성: account=%s id=%s", account, notebook_id)
         return notebook_id
 
 
