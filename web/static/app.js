@@ -272,6 +272,13 @@ function hasExtension(name, extension) {
   return String(name).toLowerCase().endsWith(String(extension).toLowerCase());
 }
 
+function getFileExtension(path) {
+  const value = String(path || '');
+  const index = value.lastIndexOf('.');
+  if (index < 0) return '';
+  return value.slice(index).toLowerCase();
+}
+
 function isEditableTextFile(name) {
   return hasExtension(name, '.md') || hasExtension(name, '.txt');
 }
@@ -294,8 +301,9 @@ function updateViewerActionButtons() {
   const cancelBtn = document.getElementById('viewer-cancel-btn');
   const summarizeBtn = document.getElementById('summarize-btn');
   const downloadBtn = document.getElementById('download-sidebar-btn');
+  const summarizeEnabled = hasCurrent && isEditableTextFile(state.currentFile.name);
 
-  if (summarizeBtn) summarizeBtn.style.display = hasCurrent ? '' : 'none';
+  if (summarizeBtn) summarizeBtn.style.display = summarizeEnabled ? '' : 'none';
   if (downloadBtn) downloadBtn.style.display = hasCurrent ? '' : 'none';
 
   if (!editable) {
@@ -490,7 +498,15 @@ function renderTreeNode(node) {
     const icon = document.createElement('span');
     icon.className = 'tree-icon';
     const isPptx = hasExtension(node.name, '.pptx');
-    icon.textContent = isPptx ? '📊' : hasExtension(node.name, '.txt') ? '📝' : '📄';
+    const isPdf = hasExtension(node.name, '.pdf');
+    const isImage =
+      hasExtension(node.name, '.png') ||
+      hasExtension(node.name, '.jpg') ||
+      hasExtension(node.name, '.jpeg') ||
+      hasExtension(node.name, '.gif') ||
+      hasExtension(node.name, '.svg') ||
+      hasExtension(node.name, '.webp');
+    icon.textContent = isPptx ? '📊' : isPdf ? '📕' : isImage ? '🖼️' : hasExtension(node.name, '.txt') ? '📝' : '📄';
     const label = document.createElement('span');
     label.textContent = node.name;
     label.style.flex = '1';
@@ -534,20 +550,62 @@ function renderTreeNode(node) {
   return wrapper;
 }
 
-// Binary extensions that must not be rendered as text
-const BINARY_EXTENSIONS = new Set(['.pptx', '.ppt', '.xlsx', '.xls', '.docx', '.doc', '.pdf', '.zip', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']);
+const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']);
+const PDF_EXTENSIONS = new Set(['.pdf']);
+const MODAL_BINARY_EXTENSIONS = new Set(['.pptx', '.ppt']);
+const DOWNLOAD_BINARY_EXTENSIONS = new Set(['.xlsx', '.xls', '.docx', '.doc', '.zip']);
+
+function renderImagePreview(path, name) {
+  const content = document.getElementById('viewer-content');
+  const tocContainer = document.getElementById('toc-container');
+  content.classList.remove('viewer-editing');
+  content.innerHTML = '';
+  if (tocContainer) tocContainer.style.display = 'none';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'viewer-media-preview';
+  const img = document.createElement('img');
+  img.src = `/api/view?path=${encodeURIComponent(path)}`;
+  img.alt = name || '';
+  img.className = 'viewer-preview-image';
+  wrap.appendChild(img);
+  content.appendChild(wrap);
+}
+
+function renderPdfPreview(path) {
+  const content = document.getElementById('viewer-content');
+  const tocContainer = document.getElementById('toc-container');
+  content.classList.remove('viewer-editing');
+  content.innerHTML = '';
+  if (tocContainer) tocContainer.style.display = 'none';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'viewer-media-preview';
+  const frame = document.createElement('iframe');
+  frame.className = 'viewer-preview-pdf';
+  frame.src = `/api/view?path=${encodeURIComponent(path)}`;
+  frame.title = 'PDF 미리보기';
+  wrap.appendChild(frame);
+  content.appendChild(wrap);
+}
 
 /* ── File Viewer ─────────────────────────────────────────────────── */
 async function openFile(path, name) {
-  // Guard: binary files must never reach the markdown renderer
-  const ext = '.' + (path || '').split('.').pop().toLowerCase();
-  if (BINARY_EXTENSIONS.has(ext)) {
-    const fileName = name || path.split('/').pop();
-    if ((ext === '.pptx' || ext === '.ppt') && !isMobile()) {
+  const ext = getFileExtension(path || name);
+  const fileName = name || String(path || '').split('/').pop() || '';
+
+  // Guard: binary files are handled separately from markdown rendering
+  if (MODAL_BINARY_EXTENSIONS.has(ext)) {
+    if (!isMobile()) {
       openPptxModal(path, fileName);
     } else {
       downloadFile(path, fileName);
     }
+    return;
+  }
+
+  if (DOWNLOAD_BINARY_EXTENSIONS.has(ext)) {
+    downloadFile(path, fileName);
     return;
   }
   try {
@@ -558,6 +616,29 @@ async function openFile(path, name) {
     ) {
       const shouldMove = confirm('저장되지 않은 변경사항이 있습니다. 저장하지 않고 다른 파일을 열까요?');
       if (!shouldMove) return;
+    }
+
+    if (IMAGE_EXTENSIONS.has(ext) || PDF_EXTENSIONS.has(ext)) {
+      state.currentFile = { path, name: fileName, content: '' };
+      state.viewerEditing = false;
+
+      document.getElementById('viewer-filename').textContent = fileName;
+      document.getElementById('viewer-path').textContent = path;
+      updateViewerActionButtons();
+      expandSection('viewer');
+
+      if (IMAGE_EXTENSIONS.has(ext)) {
+        renderImagePreview(path, fileName);
+      } else {
+        renderPdfPreview(path);
+      }
+
+      document.getElementById('viewer-scroll').scrollTop = 0;
+      if (isMobile()) closeSidebar();
+      document.getElementById('run-btn').disabled = true;
+      document.getElementById('save-btn').disabled = true;
+      resetAIResult();
+      return;
     }
 
     const res = await fetch(`/api/file?path=${encodeURIComponent(path)}`);

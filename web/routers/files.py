@@ -12,6 +12,18 @@ router = APIRouter(prefix="/api")
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50MB
 ALLOWED_EXTENSIONS = {".md", ".txt", ".png", ".jpg", ".jpeg", ".gif", ".pdf", ".svg", ".webp"}
 EDITABLE_TEXT_EXTENSIONS = {".md", ".txt"}
+TREE_VISIBLE_EXTENSIONS = {
+    ".md",
+    ".txt",
+    ".pptx",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".pdf",
+    ".svg",
+    ".webp",
+}
 
 
 def _safe_resolve(relative: str) -> Path:
@@ -37,7 +49,7 @@ def _build_tree(path: Path, vault: Path) -> dict:
                     continue
                 if entry.is_dir():
                     children.append(_build_tree(entry, vault))
-                elif entry.suffix.lower() in {".md", ".txt", ".pptx"}:
+                elif entry.suffix.lower() in TREE_VISIBLE_EXTENSIONS:
                     child_rel = str(entry.relative_to(vault))
                     children.append({"name": entry.name, "path": child_rel, "type": "file"})
         except PermissionError:
