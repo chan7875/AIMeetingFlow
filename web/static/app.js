@@ -294,12 +294,16 @@ async function loadAutoWatchStatus(options = {}) {
 function renderAutoWatchButton() {
   const btn = document.getElementById('auto-watch-btn');
   if (!btn) return;
+  const status = state.autoWatchStatus || {};
   const isOn = !!state.autoWatchEnabled;
-  btn.innerHTML = `🛰 <span class="btn-text">${isOn ? '자동 분석 ON' : '자동 분석 OFF'}</span>`;
+  const hasError = !!(status.last_error || '').trim();
+  const label = hasError ? `오류 ${isOn ? 'ON' : 'OFF'}` : (isOn ? '자동 분석 ON' : '자동 분석 OFF');
+
+  btn.innerHTML = `🛰 <span class="btn-text">${label}</span>`;
   btn.classList.toggle('toggle-on', isOn);
+  btn.classList.toggle('toggle-error', hasError);
   btn.disabled = !!state.autoWatchBusy;
 
-  const status = state.autoWatchStatus || {};
   const lastSaved = status.last_saved_path || '없음';
   const lastError = status.last_error || '없음';
   btn.title = `새 파일 자동 Codex 분석 (${isOn ? 'ON' : 'OFF'})\n최근 저장: ${lastSaved}\n최근 오류: ${lastError}`;
