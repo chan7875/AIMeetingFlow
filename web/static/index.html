@@ -221,9 +221,15 @@
       <label>커밋 메시지</label>
       <input type="text" id="git-commit-msg" value="웹 뷰어에서 업데이트" placeholder="커밋 메시지를 입력하세요">
     </div>
+    <div>
+      <label>Push 대상 파일 선택</label>
+      <div id="git-files-list" class="git-files-list">
+        <div style="padding:8px;color:var(--text-dim);font-size:12px;">로딩 중...</div>
+      </div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('git-push-modal')">취소</button>
-      <button class="btn btn-primary" onclick="runGitPush()">Push 실행</button>
+      <button class="btn btn-primary" id="git-push-run-btn" onclick="runGitPush()">Push 실행</button>
     </div>
   </div>
 </div>

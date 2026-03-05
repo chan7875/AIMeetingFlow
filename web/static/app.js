@@ -15,6 +15,7 @@ const state = {
   abortController: null, // for AI streaming cancellation
   promptTemplates: {},
   defaultPrompt: '',
+  gitPushFiles: [],
 };
 
 const PROMPT_TEMPLATE_STORAGE_KEY = 'prompt_templates_v1';
@@ -1125,8 +1126,80 @@ async function doUpload() {
 }
 
 /* ── Git ─────────────────────────────────────────────────────────── */
+function updateGitPushRunButton() {
+  const runBtn = document.getElementById('git-push-run-btn');
+  if (!runBtn) return;
+  const selectedCount = document.querySelectorAll('.git-file-checkbox:checked').length;
+  runBtn.disabled = selectedCount === 0;
+  runBtn.textContent = selectedCount > 0 ? `Push 실행 (${selectedCount})` : 'Push 실행';
+}
+
+function renderGitPushFileList(files) {
+  const listEl = document.getElementById('git-files-list');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+
+  if (!files || files.length === 0) {
+    listEl.innerHTML = '<div style="padding:8px;color:var(--text-dim);font-size:12px;">변경된 파일이 없습니다.</div>';
+    updateGitPushRunButton();
+    return;
+  }
+
+  files.forEach(file => {
+    const row = document.createElement('label');
+    row.className = 'git-file-item';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'git-file-checkbox';
+    checkbox.value = file.path;
+    checkbox.checked = true;
+    checkbox.addEventListener('change', updateGitPushRunButton);
+
+    const status = document.createElement('span');
+    status.className = 'git-file-status';
+    status.textContent = file.status || '?';
+
+    const path = document.createElement('span');
+    path.className = 'git-file-path';
+    path.textContent = file.path;
+
+    row.append(checkbox, status, path);
+    listEl.appendChild(row);
+  });
+  updateGitPushRunButton();
+}
+
+async function loadGitPushFiles() {
+  const listEl = document.getElementById('git-files-list');
+  if (listEl) {
+    listEl.innerHTML = '<div style="padding:8px;color:var(--text-dim);font-size:12px;">변경 파일 조회 중...</div>';
+  }
+
+  try {
+    const res = await fetch('/api/git/changes');
+    if (!res.ok) throw new Error('변경 파일 조회 실패');
+    const data = await res.json();
+    if (!data.is_git_repo) {
+      if (listEl) {
+        listEl.innerHTML = `<div style="padding:8px;color:var(--red);font-size:12px;">${data.message || 'Git 저장소가 아닙니다.'}</div>`;
+      }
+      updateGitPushRunButton();
+      return;
+    }
+    state.gitPushFiles = Array.isArray(data.files) ? data.files : [];
+    renderGitPushFileList(state.gitPushFiles);
+  } catch (e) {
+    if (listEl) {
+      listEl.innerHTML = `<div style="padding:8px;color:var(--red);font-size:12px;">오류: ${e.message}</div>`;
+    }
+    updateGitPushRunButton();
+  }
+}
+
 function openGitPushModal() {
   showModal('git-push-modal');
+  loadGitPushFiles();
 }
 
 async function runGit(action) {
@@ -1164,6 +1237,10 @@ async function runGit(action) {
 
 async function runGitPush() {
   const msg = document.getElementById('git-commit-msg').value.trim() || '웹 뷰어에서 업데이트';
+  const selectedFiles = Array.from(document.querySelectorAll('.git-file-checkbox:checked')).map(el => el.value);
+  if (selectedFiles.length === 0) {
+    return toast('Push할 파일을 최소 1개 선택해 주세요.', 'error');
+  }
   closeModal('git-push-modal');
 
   document.getElementById('git-modal-title').textContent = '⬆ Git Push 실행 중...';
@@ -1176,7 +1253,7 @@ async function runGitPush() {
     const res = await fetch('/api/git/push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: msg }),
+      body: JSON.stringify({ message: msg, files: selectedFiles }),
     });
     await readSSE(res, (event, data) => {
       outputEl.textContent += data;
