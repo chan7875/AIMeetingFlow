@@ -659,6 +659,7 @@ main {
 .btn-secondary { background: var(--surface2); color: var(--accent2); border: 1px solid var(--border); }
 .btn-secondary:hover { border-color: var(--accent2); }
 .btn-secondary:disabled { opacity: .4; cursor: not-allowed; }
+.btn-secondary.active { border-color: var(--accent); color: var(--accent); }
 
 .btn-cancel { background: var(--red); color: #1e1e2e; }
 .btn-cancel:hover { opacity: .85; }
@@ -747,6 +748,38 @@ main {
 
 .result-streaming { white-space: pre-wrap; font-family: monospace; font-size: 12px; }
 .result-rendered h1, .result-rendered h2, .result-rendered h3 { font-size: 1em; color: var(--accent); }
+
+.split-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  min-height: 100%;
+}
+
+.split-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.split-pane-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+
+.split-pane-body {
+  padding: 10px 12px;
+  overflow: auto;
+  max-height: 48vh;
+}
 
 .spinner {
   display: inline-block;
@@ -1257,6 +1290,10 @@ main {
   #result-area {
     overflow-y: scroll;
     -webkit-overflow-scrolling: touch;
+  }
+
+  .split-compare {
+    grid-template-columns: 1fr;
   }
 
   /* 접힌 섹션: 섹션바 높이만, flex 해제 → 펼친 섹션이 공간 차지 */

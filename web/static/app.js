@@ -18,6 +18,7 @@ const state = {
   gitPushFiles: [],
   uploadPickerExpanded: new Set(['']),
   recentFiles: [],
+  splitViewEnabled: false,
 };
 
 const PROMPT_TEMPLATE_STORAGE_KEY = 'prompt_templates_v1';
@@ -197,6 +198,7 @@ window.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initPromptTemplates();
   initRecentFiles();
+  updateSplitViewButton();
   updateViewerActionButtons();
   loadGitStatus();
   setInterval(loadGitStatus, 30000); // refresh badge every 30s
@@ -1030,11 +1032,67 @@ function toggleToc() {
 }
 
 function renderAIResult(rawText) {
-  const resultArea = document.getElementById('result-area');
   state.aiResult = (rawText || '').trim();
+  if (state.splitViewEnabled) {
+    renderSplitComparison();
+    return;
+  }
+  const resultArea = document.getElementById('result-area');
   resultArea.innerHTML = `<div class="result-rendered">${parseMarkdownSafe(state.aiResult)}</div>`;
   resultArea.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b));
   bindWikiLinks(resultArea);
+}
+
+function updateSplitViewButton() {
+  const btn = document.getElementById('split-view-btn');
+  if (!btn) return;
+  btn.classList.toggle('active', state.splitViewEnabled);
+  btn.textContent = state.splitViewEnabled ? '⧉ 분할뷰 ON' : '⧉ 분할뷰';
+}
+
+function renderSplitComparison() {
+  const resultArea = document.getElementById('result-area');
+  const originalContent = state.viewerEditing ? getViewerEditorValue() : (state.currentFile?.content || '');
+  const aiContent = state.aiResult || '';
+
+  resultArea.innerHTML = `
+    <div class="split-compare">
+      <section class="split-pane">
+        <div class="split-pane-title">원본</div>
+        <div class="split-pane-body" id="split-original-pane"></div>
+      </section>
+      <section class="split-pane">
+        <div class="split-pane-title">AI 결과</div>
+        <div class="split-pane-body" id="split-ai-pane"></div>
+      </section>
+    </div>
+  `;
+
+  const originalPane = document.getElementById('split-original-pane');
+  const aiPane = document.getElementById('split-ai-pane');
+  if (originalPane) {
+    originalPane.innerHTML = parseMarkdownSafe(originalContent || '_원본 파일이 없습니다._');
+  }
+  if (aiPane) {
+    aiPane.innerHTML = parseMarkdownSafe(aiContent || '_AI 결과가 없습니다._');
+  }
+
+  resultArea.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b));
+  bindWikiLinks(resultArea);
+}
+
+function toggleSplitView() {
+  state.splitViewEnabled = !state.splitViewEnabled;
+  updateSplitViewButton();
+  if (state.splitViewEnabled) {
+    renderSplitComparison();
+    return;
+  }
+  if (state.aiResult) {
+    renderAIResult(state.aiResult);
+  } else {
+    resetAIResult();
+  }
 }
 
 /* ── Engine Select ───────────────────────────────────────────────── */
@@ -1209,6 +1267,10 @@ function downloadCurrentFile() {
 
 function resetAIResult() {
   state.aiResult = null;
+  if (state.splitViewEnabled) {
+    renderSplitComparison();
+    return;
+  }
   const resultArea = document.getElementById('result-area');
   resultArea.innerHTML = '<div id="result-placeholder">실행 결과가 여기에 표시됩니다.</div>';
 }
