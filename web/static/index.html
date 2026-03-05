@@ -48,6 +48,12 @@
       <input type="text" id="file-search-input" placeholder="파일 검색... (Ctrl+K)" oninput="filterTree(this.value)" aria-label="파일 검색">
       <button class="search-clear-btn" id="search-clear-btn" onclick="clearSearch()" style="display:none" aria-label="검색 초기화">✕</button>
     </div>
+    <div class="recent-files-box">
+      <div class="recent-files-title">최근 열람</div>
+      <div id="recent-files-list" class="recent-files-list">
+        <div class="recent-files-empty">최근 열람 파일이 없습니다.</div>
+      </div>
+    </div>
     <div id="tree-container" role="tree" aria-label="파일 트리">
       <div style="padding:16px;color:var(--text-dim);font-size:12px;">로딩 중...</div>
     </div>

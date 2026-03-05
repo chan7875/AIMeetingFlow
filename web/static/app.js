@@ -17,10 +17,13 @@ const state = {
   defaultPrompt: '',
   gitPushFiles: [],
   uploadPickerExpanded: new Set(['']),
+  recentFiles: [],
 };
 
 const PROMPT_TEMPLATE_STORAGE_KEY = 'prompt_templates_v1';
 const PROMPT_TEMPLATE_LAST_KEY = 'prompt_template_last_v1';
+const RECENT_FILES_STORAGE_KEY = 'recent_files_v1';
+const RECENT_FILES_LIMIT = 10;
 const LARGE_MARKDOWN_THRESHOLD = 200 * 1024;
 const LARGE_RENDER_CHUNK_SIZE = 12000;
 
@@ -193,6 +196,7 @@ window.addEventListener('DOMContentLoaded', () => {
   setupResize();
   initTheme();
   initPromptTemplates();
+  initRecentFiles();
   updateViewerActionButtons();
   loadGitStatus();
   setInterval(loadGitStatus, 30000); // refresh badge every 30s
@@ -345,6 +349,77 @@ function deletePromptTemplate() {
   renderPromptTemplateOptions('기본');
   applyPromptTemplate('기본', { silent: true });
   toast(`템플릿 삭제 완료: ${selected}`, 'success');
+}
+
+function loadRecentFilesFromStorage() {
+  try {
+    const raw = localStorage.getItem(RECENT_FILES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(item => item && typeof item.path === 'string' && item.path)
+      .map(item => ({
+        path: String(item.path),
+        name: String(item.name || item.path.split('/').pop() || item.path),
+      }))
+      .slice(0, RECENT_FILES_LIMIT);
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentFilesToStorage() {
+  localStorage.setItem(RECENT_FILES_STORAGE_KEY, JSON.stringify(state.recentFiles.slice(0, RECENT_FILES_LIMIT)));
+}
+
+function renderRecentFiles() {
+  const container = document.getElementById('recent-files-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!state.recentFiles || state.recentFiles.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'recent-files-empty';
+    empty.textContent = '최근 열람 파일이 없습니다.';
+    container.appendChild(empty);
+    return;
+  }
+
+  state.recentFiles.forEach(file => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'recent-file-item';
+    btn.title = file.path;
+    const nameEl = document.createElement('span');
+    nameEl.className = 'recent-file-name';
+    nameEl.textContent = file.name;
+    const pathEl = document.createElement('span');
+    pathEl.className = 'recent-file-path';
+    pathEl.textContent = file.path;
+    btn.append(nameEl, pathEl);
+    btn.onclick = () => openFile(file.path, file.name);
+    container.appendChild(btn);
+  });
+}
+
+function addRecentFile(path, name) {
+  const targetPath = String(path || '').trim();
+  if (!targetPath) return;
+  const targetName = String(name || targetPath.split('/').pop() || targetPath);
+
+  state.recentFiles = (state.recentFiles || []).filter(item => item.path !== targetPath);
+  state.recentFiles.unshift({ path: targetPath, name: targetName });
+  if (state.recentFiles.length > RECENT_FILES_LIMIT) {
+    state.recentFiles = state.recentFiles.slice(0, RECENT_FILES_LIMIT);
+  }
+  saveRecentFilesToStorage();
+  renderRecentFiles();
+}
+
+function initRecentFiles() {
+  state.recentFiles = loadRecentFilesFromStorage();
+  renderRecentFiles();
 }
 
 /* ── Config ───────────────────────────────────────────────────────── */
@@ -863,6 +938,7 @@ async function openFile(path, name) {
     if (IMAGE_EXTENSIONS.has(ext) || PDF_EXTENSIONS.has(ext)) {
       state.currentFile = { path, name: fileName, content: '' };
       state.viewerEditing = false;
+      addRecentFile(path, fileName);
 
       document.getElementById('viewer-filename').textContent = fileName;
       document.getElementById('viewer-path').textContent = path;
@@ -888,6 +964,7 @@ async function openFile(path, name) {
     const data = await res.json();
     state.currentFile = data;
     state.viewerEditing = false;
+    addRecentFile(data.path, data.name);
 
     // Update section-bar
     document.getElementById('viewer-filename').textContent = data.name;
