@@ -54,6 +54,17 @@ def get_issue_folder() -> str:
     return data.get("issue_folder") or DEFAULT_ISSUE_FOLDER
 
 
+def set_issue_folder(folder: str) -> str:
+    normalized = str(folder or "").strip().replace("\\", "/")
+    normalized = normalized.strip("/")
+    if not normalized:
+        normalized = DEFAULT_ISSUE_FOLDER
+    data = _load()
+    data["issue_folder"] = normalized
+    _save(data)
+    return normalized
+
+
 def get_auto_watch_enabled() -> bool:
     data = _load()
     raw = data.get("auto_watch_enabled")

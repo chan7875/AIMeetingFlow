@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from web.config import get_vault_path, set_vault_path, get_issue_folder
+from web.config import get_vault_path, set_vault_path, get_issue_folder, set_issue_folder
 
 router = APIRouter(prefix="/api")
 
@@ -61,7 +61,8 @@ def _build_tree(path: Path, vault: Path) -> dict:
 # ── Config ──────────────────────────────────────────────────────────────────
 
 class ConfigBody(BaseModel):
-    vault_path: str
+    vault_path: str | None = None
+    issue_folder: str | None = None
 
 
 class RenameBody(BaseModel):
@@ -86,13 +87,32 @@ def get_config():
 
 @router.post("/config")
 def update_config(body: ConfigBody):
-    p = Path(body.vault_path).expanduser()
-    if not p.exists():
-        raise HTTPException(status_code=400, detail=f"경로가 존재하지 않습니다: {body.vault_path}")
-    if not p.is_dir():
-        raise HTTPException(status_code=400, detail="폴더 경로를 입력해 주세요.")
-    resolved = set_vault_path(body.vault_path)
-    return {"vault_path": str(resolved)}
+    if body.vault_path is not None:
+        p = Path(body.vault_path).expanduser()
+        if not p.exists():
+            raise HTTPException(status_code=400, detail=f"경로가 존재하지 않습니다: {body.vault_path}")
+        if not p.is_dir():
+            raise HTTPException(status_code=400, detail="폴더 경로를 입력해 주세요.")
+        resolved = set_vault_path(body.vault_path)
+    else:
+        resolved = get_vault_path()
+
+    if body.issue_folder is not None:
+        raw_issue_folder = body.issue_folder.strip().replace("\\", "/")
+        if Path(raw_issue_folder).is_absolute() or raw_issue_folder.startswith("/"):
+            raise HTTPException(status_code=400, detail="Issue 폴더는 볼트 내부 상대 경로로 입력해 주세요.")
+
+        issue_folder = raw_issue_folder.strip("/")
+        if not issue_folder:
+            raise HTTPException(status_code=400, detail="Issue 폴더 경로를 입력해 주세요.")
+        issue_parts = Path(issue_folder).parts
+        if ".." in issue_parts or issue_folder.startswith("."):
+            raise HTTPException(status_code=400, detail="Issue 폴더 경로에 '..' 또는 숨김 경로를 사용할 수 없습니다.")
+        normalized_issue = set_issue_folder(issue_folder)
+    else:
+        normalized_issue = get_issue_folder()
+
+    return {"vault_path": str(resolved), "issue_folder": normalized_issue}
 
 
 # ── Tree ─────────────────────────────────────────────────────────────────────

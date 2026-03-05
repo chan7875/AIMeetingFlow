@@ -244,6 +244,8 @@ async function loadConfig() {
   const data = await res.json();
   document.getElementById('vault-path-display').textContent = data.vault_path;
   document.getElementById('settings-vault-input').value = data.vault_path;
+  const issueInput = document.getElementById('settings-issue-folder-input');
+  if (issueInput) issueInput.value = data.issue_folder || 'issue';
 }
 
 function openSettingsModal() {
@@ -253,11 +255,13 @@ function openSettingsModal() {
 
 async function saveSettings() {
   const path = document.getElementById('settings-vault-input').value.trim();
+  const issueFolder = document.getElementById('settings-issue-folder-input').value.trim();
   if (!path) return toast('경로를 입력해 주세요.', 'error');
+  if (!issueFolder) return toast('Issue 폴더 경로를 입력해 주세요.', 'error');
   const res = await fetch('/api/config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ vault_path: path }),
+    body: JSON.stringify({ vault_path: path, issue_folder: issueFolder }),
   });
   if (!res.ok) {
     const err = await res.json();
