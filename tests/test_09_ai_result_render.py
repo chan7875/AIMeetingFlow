@@ -7,7 +7,7 @@ def test_render_ai_result_function_exists(client):
     js = res.text
     assert "function renderAIResult" in js
     assert "state.aiResult = (rawText || '').trim()" in js
-    assert "marked.parse(state.aiResult)" in js
+    assert "parseMarkdownSafe(state.aiResult)" in js
 
 
 def test_run_ai_uses_streaming_path(client):

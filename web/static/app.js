@@ -27,6 +27,14 @@ marked.setOptions({
   gfm: true,
 });
 
+function parseMarkdownSafe(markdownText) {
+  const rawHtml = marked.parse(markdownText || '');
+  if (typeof DOMPurify !== 'undefined') {
+    return DOMPurify.sanitize(rawHtml);
+  }
+  return rawHtml;
+}
+
 /* ── Mermaid.js setup ────────────────────────────────────────────── */
 if (typeof mermaid !== 'undefined') {
   mermaid.initialize({
@@ -335,7 +343,7 @@ async function renderViewerMarkdown(contentText) {
   const placeholder = document.getElementById('viewer-placeholder');
   if (placeholder) placeholder.remove();
   content.classList.remove('viewer-editing');
-  content.innerHTML = marked.parse(contentText || '');
+  content.innerHTML = parseMarkdownSafe(contentText || '');
 
   content.querySelectorAll('pre code').forEach(block => {
     hljs.highlightElement(block);
@@ -624,7 +632,7 @@ function toggleToc() {
 function renderAIResult(rawText) {
   const resultArea = document.getElementById('result-area');
   state.aiResult = (rawText || '').trim();
-  resultArea.innerHTML = `<div class="result-rendered">${marked.parse(state.aiResult)}</div>`;
+  resultArea.innerHTML = `<div class="result-rendered">${parseMarkdownSafe(state.aiResult)}</div>`;
   resultArea.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b));
 }
 
