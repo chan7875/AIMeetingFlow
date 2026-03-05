@@ -388,6 +388,20 @@ main {
 
 #viewer-placeholder .placeholder-icon { font-size: 48px; opacity: .3; }
 
+.viewer-large-notice {
+  margin: 14px 16px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--yellow);
+  border-radius: 6px;
+  background: rgba(249,226,175,.08);
+  color: var(--yellow);
+  font-size: 12px;
+}
+
+.viewer-chunk {
+  margin-top: 10px;
+}
+
 .viewer-media-preview {
   display: flex;
   align-items: center;

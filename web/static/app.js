@@ -20,6 +20,8 @@ const state = {
 
 const PROMPT_TEMPLATE_STORAGE_KEY = 'prompt_templates_v1';
 const PROMPT_TEMPLATE_LAST_KEY = 'prompt_template_last_v1';
+const LARGE_MARKDOWN_THRESHOLD = 200 * 1024;
+const LARGE_RENDER_CHUNK_SIZE = 12000;
 
 /* ── Marked.js setup ─────────────────────────────────────────────── */
 marked.setOptions({
@@ -39,6 +41,52 @@ function parseMarkdownSafe(markdownText) {
     return DOMPurify.sanitize(rawHtml);
   }
   return rawHtml;
+}
+
+function splitMarkdownChunks(text, maxChars = LARGE_RENDER_CHUNK_SIZE) {
+  const blocks = String(text || '').split(/\n{2,}/);
+  const chunks = [];
+  let current = '';
+
+  for (const block of blocks) {
+    const nextPart = (current ? `${current}\n\n${block}` : block);
+    if (nextPart.length > maxChars && current) {
+      chunks.push(current);
+      current = block;
+    } else {
+      current = nextPart;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
+function nextFrame() {
+  return new Promise(resolve => requestAnimationFrame(resolve));
+}
+
+async function renderLargeMarkdownInChunks(containerEl, contentText) {
+  const chunks = splitMarkdownChunks(contentText, LARGE_RENDER_CHUNK_SIZE);
+  containerEl.innerHTML = '';
+
+  const notice = document.createElement('div');
+  notice.className = 'viewer-large-notice';
+  notice.textContent = `대용량 파일 청크 렌더링 모드 (${chunks.length}개 블록)`;
+  containerEl.appendChild(notice);
+
+  for (let i = 0; i < chunks.length; i++) {
+    const section = document.createElement('section');
+    section.className = 'viewer-chunk';
+    section.innerHTML = parseMarkdownSafe(chunks[i]);
+    containerEl.appendChild(section);
+    if (i % 2 === 0) {
+      await nextFrame();
+    }
+  }
+
+  containerEl.querySelectorAll('pre code').forEach(block => {
+    hljs.highlightElement(block);
+  });
 }
 
 /* ── Mermaid.js setup ────────────────────────────────────────────── */
@@ -476,16 +524,22 @@ function resetViewerState() {
 async function renderViewerMarkdown(contentText) {
   const content = document.getElementById('viewer-content');
   const placeholder = document.getElementById('viewer-placeholder');
+  const tocContainer = document.getElementById('toc-container');
   if (placeholder) placeholder.remove();
   content.classList.remove('viewer-editing');
-  content.innerHTML = parseMarkdownSafe(contentText || '');
+  const source = contentText || '';
 
-  content.querySelectorAll('pre code').forEach(block => {
-    hljs.highlightElement(block);
-  });
-
-  await renderMermaidBlocks(content);
-  generateTOC(content);
+  if (source.length > LARGE_MARKDOWN_THRESHOLD) {
+    if (tocContainer) tocContainer.style.display = 'none';
+    await renderLargeMarkdownInChunks(content, source);
+  } else {
+    content.innerHTML = parseMarkdownSafe(source);
+    content.querySelectorAll('pre code').forEach(block => {
+      hljs.highlightElement(block);
+    });
+    await renderMermaidBlocks(content);
+    generateTOC(content);
+  }
 }
 
 function renderViewerEditor(contentText) {
