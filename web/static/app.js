@@ -621,6 +621,13 @@ function toggleToc() {
   toggle.style.transform = isCollapsed ? 'rotate(-90deg)' : '';
 }
 
+function renderAIResult(rawText) {
+  const resultArea = document.getElementById('result-area');
+  state.aiResult = (rawText || '').trim();
+  resultArea.innerHTML = `<div class="result-rendered">${marked.parse(state.aiResult)}</div>`;
+  resultArea.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b));
+}
+
 /* ── Engine Select ───────────────────────────────────────────────── */
 function selectEngine(engine) {
   state.engine = engine;
@@ -630,72 +637,7 @@ function selectEngine(engine) {
 
 /* ── AI Run ──────────────────────────────────────────────────────── */
 async function runAI() {
-  if (!state.currentFile) return toast('먼저 파일을 선택해 주세요.', 'error');
-  const prompt = document.getElementById('prompt-textarea').value.trim();
-  if (!prompt) return toast('프롬프트를 입력해 주세요.', 'error');
-  const fileContent = state.viewerEditing ? getViewerEditorValue() : state.currentFile.content;
-
-  const runBtn = document.getElementById('run-btn');
-  runBtn.disabled = true;
-  runBtn.innerHTML = '<span class="spinner"></span> 실행 중...';
-
-  const resultArea = document.getElementById('result-area');
-  resultArea.innerHTML = '<div class="result-streaming" id="streaming-output"></div>';
-  const streamEl = document.getElementById('streaming-output');
-  state.aiResult = null;
-
-  try {
-    const res = await fetch('/api/ai/run', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        engine: state.engine,
-        content: fileContent,
-        prompt,
-        file_path: state.currentFile.path,
-      }),
-    });
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let fullOutput = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-
-      for (const line of lines) {
-        if (line.startsWith('event: error')) continue;
-        if (line.startsWith('data: ')) {
-          const text = line.slice(6);
-          // Check if this is a done event (comes after "event: done" line)
-          fullOutput += text + '\n';
-          streamEl.textContent = fullOutput;
-          resultArea.scrollTop = resultArea.scrollHeight;
-        }
-      }
-    }
-
-    // Parse SSE properly
-    const events = parseSSE(await getBodyText(res));
-    // We already processed - just finalize
-    state.aiResult = fullOutput.trim();
-
-    // Render as markdown
-    resultArea.innerHTML = `<div class="result-rendered">${marked.parse(state.aiResult)}</div>`;
-    resultArea.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b));
-    document.getElementById('save-btn').disabled = false;
-    toast('AI 실행 완료', 'success');
-  } catch (e) {
-    toast(`AI 실행 오류: ${e.message}`, 'error');
-  } finally {
-    runBtn.disabled = false;
-    runBtn.textContent = '▶ 실행';
-  }
+  await runAIStream();
 }
 
 // Better SSE streaming with cancel support
@@ -743,9 +685,7 @@ async function runAIStream() {
           resultArea.scrollTop = resultArea.scrollHeight;
         }
       } else if (event === 'done') {
-        state.aiResult = data.trim() || accumulated.join('').trim();
-        resultArea.innerHTML = `<div class="result-rendered">${marked.parse(state.aiResult)}</div>`;
-        resultArea.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b));
+        renderAIResult(data.trim() || accumulated.join('').trim());
         toast('AI 실행 완료', 'success');
       } else if (event === 'error') {
         toast(`AI 오류: ${data}`, 'error');
