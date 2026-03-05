@@ -37,11 +37,69 @@ marked.setOptions({
 });
 
 function parseMarkdownSafe(markdownText) {
-  const rawHtml = marked.parse(markdownText || '');
+  const rawHtml = marked.parse(transformWikiLinks(markdownText || ''));
   if (typeof DOMPurify !== 'undefined') {
     return DOMPurify.sanitize(rawHtml);
   }
   return rawHtml;
+}
+
+function transformWikiLinks(markdownText) {
+  return String(markdownText || '').replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (full, rawTarget, rawLabel) => {
+    const target = String(rawTarget || '').trim();
+    const label = String(rawLabel || target).trim();
+    if (!target) return full;
+    return `[${label}](wikilink:${encodeURIComponent(target)})`;
+  });
+}
+
+function collectFileNodes(treeNode, output = []) {
+  if (!treeNode || !Array.isArray(treeNode.children)) return output;
+  treeNode.children.forEach(node => {
+    if (node.type === 'file') output.push(node);
+    if (node.type === 'directory') collectFileNodes(node, output);
+  });
+  return output;
+}
+
+function resolveWikiLinkTarget(target) {
+  const files = collectFileNodes(state.treeData, []);
+  const normalizedTarget = String(target || '').trim().replace(/\\/g, '/').toLowerCase();
+  if (!normalizedTarget) return null;
+
+  const candidates = new Set([
+    normalizedTarget,
+    normalizedTarget.endsWith('.md') ? normalizedTarget : `${normalizedTarget}.md`,
+    normalizedTarget.endsWith('.txt') ? normalizedTarget : `${normalizedTarget}.txt`,
+  ]);
+
+  for (const file of files) {
+    const pathLower = String(file.path || '').toLowerCase();
+    const nameLower = String(file.name || '').toLowerCase();
+    const stemLower = nameLower.replace(/\.[^.]+$/, '');
+    if (candidates.has(pathLower) || candidates.has(nameLower) || candidates.has(stemLower)) {
+      return file;
+    }
+  }
+  return null;
+}
+
+function bindWikiLinks(containerEl) {
+  if (!containerEl) return;
+  containerEl.querySelectorAll('a[href^="wikilink:"]').forEach(link => {
+    const href = link.getAttribute('href') || '';
+    const target = decodeURIComponent(href.replace(/^wikilink:/, ''));
+    link.setAttribute('data-wikilink', 'true');
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      const found = resolveWikiLinkTarget(target);
+      if (!found) {
+        toast(`위키링크 대상 파일을 찾을 수 없습니다: ${target}`, 'error');
+        return;
+      }
+      openFile(found.path, found.name);
+    });
+  });
 }
 
 function splitMarkdownChunks(text, maxChars = LARGE_RENDER_CHUNK_SIZE) {
@@ -88,6 +146,7 @@ async function renderLargeMarkdownInChunks(containerEl, contentText) {
   containerEl.querySelectorAll('pre code').forEach(block => {
     hljs.highlightElement(block);
   });
+  bindWikiLinks(containerEl);
 }
 
 /* ── Mermaid.js setup ────────────────────────────────────────────── */
@@ -540,6 +599,7 @@ async function renderViewerMarkdown(contentText) {
     });
     await renderMermaidBlocks(content);
     generateTOC(content);
+    bindWikiLinks(content);
   }
 }
 
@@ -897,6 +957,7 @@ function renderAIResult(rawText) {
   state.aiResult = (rawText || '').trim();
   resultArea.innerHTML = `<div class="result-rendered">${parseMarkdownSafe(state.aiResult)}</div>`;
   resultArea.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b));
+  bindWikiLinks(resultArea);
 }
 
 /* ── Engine Select ───────────────────────────────────────────────── */
